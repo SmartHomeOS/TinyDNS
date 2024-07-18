@@ -19,7 +19,7 @@ namespace TinyDNS.Records
         public List<string> CNameLabels { get; }
         public string CName { get { return string.Join('.', CNameLabels); } }
 
-        internal CNameRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal CNameRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             pos += 2;
             CNameLabels = DomainParser.Read(buffer, ref pos);
@@ -28,6 +28,11 @@ namespace TinyDNS.Records
         public CNameRecord(string cname, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.CNAME, @class, ttl)
         {
             CNameLabels = new List<string>(cname.Split('.'));
+        }
+
+        public CNameRecord(ResourceRecordHeader header, string rdata) : base(header)
+        {
+            CNameLabels = DomainParser.Parse(rdata);
         }
 
         public override bool Equals(ResourceRecord? other)

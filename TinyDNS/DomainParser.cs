@@ -79,5 +79,11 @@ namespace TinyDNS
             }
             buffer[pos++] = ROOT;
         }
+
+        internal static List<string> Parse(string domain)
+        {
+            //TODO - Handle escaped chars
+            return domain.Split('.', StringSplitOptions.TrimEntries).ToList();
+        }
     }
 }

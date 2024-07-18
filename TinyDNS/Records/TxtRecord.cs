@@ -20,7 +20,7 @@ namespace TinyDNS.Records
     {
         public List<string> Strings { get; }
 
-        internal TxtRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal TxtRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             List<string> strings = [];
             ushort rLen = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));

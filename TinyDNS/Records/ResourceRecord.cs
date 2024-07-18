@@ -19,12 +19,12 @@ namespace TinyDNS.Records
         public DNSClass Class { get { return header.Class; } set { header.Class = value; } }
         public DNSRecordType Type { get { return header.Type; } set { header.Type = value; } }
         public List<string> Labels { get { return header.Labels; } set { header.Labels = value; } }
-        public uint TTL { get { return header.TTL; } set { header.TTL = value; } }
+        public DateTime Expires { get { return header.Expires; } set { header.Expires = value; } }
         public bool CacheFlush { get { return header.CacheFlush; } set { header.CacheFlush = value; } }
         public string Name { get { return string.Join('.', header.Labels); } }
         protected ResourceRecordHeader header;
 
-        public ResourceRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos)
+        public ResourceRecord(ResourceRecordHeader header)
         {
             this.header = header;
         }
@@ -76,6 +76,35 @@ namespace TinyDNS.Records
         public virtual bool Equals(ResourceRecord? other)
         {
             return Type == other!.Type && Name.SequenceEqual(other!.Name);
+        }
+
+        internal static ResourceRecord Parse(string line)
+        {
+            string[] columns = line.Split(' ', 4, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            ResourceRecordHeader header = new ResourceRecordHeader(columns);
+            ResourceRecord record;
+            switch (header.Type)
+            {
+                case DNSRecordType.A:
+                    record = new ARecord(header, columns[3]);
+                    break;
+                case DNSRecordType.PTR:
+                    record = new PtrRecord(header, columns[3]);
+                    break;
+                case DNSRecordType.AAAA:
+                    record = new AAAARecord(header, columns[3]);
+                    break;
+                case DNSRecordType.CNAME:
+                    record = new CNameRecord(header, columns[3]);
+                    break;
+                case DNSRecordType.NS:
+                    record = new NSRecord(header, columns[3]);
+                    break;
+                default:
+                    record = new UnsupportedRecord(header, columns[3]);
+                    break;
+            }
+            return record;
         }
     }
 }

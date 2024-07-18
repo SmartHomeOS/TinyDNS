@@ -19,7 +19,7 @@ namespace TinyDNS.Records
         public List<string> DomainLabels { get; }
         public string Domain { get { return string.Join('.', DomainLabels); } }
 
-        internal PtrRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal PtrRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             pos += 2;
             DomainLabels = DomainParser.Read(buffer, ref pos);
@@ -28,6 +28,11 @@ namespace TinyDNS.Records
         public PtrRecord(string domain, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.PTR, @class, ttl)
         {
             DomainLabels = new List<string>(domain.Split('.'));
+        }
+
+        public PtrRecord(ResourceRecordHeader header, string rdata) : base(header)
+        {
+            DomainLabels = DomainParser.Parse(rdata);
         }
 
         public override bool Equals(ResourceRecord? other)

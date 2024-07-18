@@ -14,6 +14,7 @@ namespace TinyDNS.Enums
 {
     public enum DNSRecordType : ushort
     {
+        None = 0x00,
         A = 0x01,
         NS = 0x02,
         CNAME = 0x05,

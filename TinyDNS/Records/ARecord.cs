@@ -20,7 +20,7 @@ namespace TinyDNS.Records
     {
         public IPAddress Address { get; protected set; }
 
-        internal ARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal ARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             ushort len = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
             pos += 2;
@@ -33,11 +33,21 @@ namespace TinyDNS.Records
             Address = address;
         }
 
+        public ARecord(ResourceRecordHeader header, string rdata) : base(header)
+        {
+            Address = IPAddress.Parse(rdata);
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is ARecord otherA)
                 return base.Equals(other) && Address.Equals(otherA.Address);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return Address.GetHashCode() + (int)Type;
         }
     }
 }

@@ -20,7 +20,7 @@ namespace TinyDNS.Records
         public DNSClass Class { get; set; }
         public DNSRecordType Type { get; set; }
         public List<string> Labels { get; set; }
-        public uint TTL { get; set; }
+        public DateTime Expires { get; set; }
         public bool CacheFlush { get; set; }
 
         public ResourceRecordHeader(Span<byte> buffer, ref int pos)
@@ -32,8 +32,17 @@ namespace TinyDNS.Records
             pos += 2;
             CacheFlush = (recordClass & 0x8000) == 0x8000;
             Class = (DNSClass)(recordClass & 0x7FFF);
-            TTL = BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4));
+            Expires = DateTime.Now + TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4)));
             pos += 4;
+        }
+
+        public ResourceRecordHeader(string[] columns)
+        {
+            Labels = DomainParser.Parse(columns[0]);
+            Type = DNSRecordParser.Parse(columns[2]);
+            uint ttl = uint.Parse(columns[1]);
+            Class = DNSClass.Internet;
+            Expires = DateTime.Now + TimeSpan.FromSeconds(ttl);
         }
 
         public ResourceRecordHeader(List<string> labels, DNSRecordType type, DNSClass @class, uint ttl)
@@ -41,7 +50,7 @@ namespace TinyDNS.Records
             this.Labels = labels;
             this.Type = type;
             this.Class = @class;
-            this.TTL = ttl;
+            this.Expires = DateTime.Now + TimeSpan.FromSeconds(ttl);
         }
 
         public void Write(Span<byte> buffer, ref int pos)

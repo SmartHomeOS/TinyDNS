@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers.Binary;
+using System.Text;
 using TinyDNS.Enums;
 
 namespace TinyDNS.Records
@@ -19,7 +20,7 @@ namespace TinyDNS.Records
     {
         public byte[] RData { get; protected set; }
 
-        internal UnsupportedRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal UnsupportedRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             ushort len = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
             pos += 2;
@@ -34,6 +35,11 @@ namespace TinyDNS.Records
         public UnsupportedRecord(byte[] data, List<string> labels, DNSRecordType type, DNSClass @class, uint ttl) : base(labels, type, @class, ttl)
         {
             RData = data;
+        }
+
+        public UnsupportedRecord(ResourceRecordHeader header, string rdata) : base(header)
+        {
+            RData = Encoding.UTF8.GetBytes(rdata);
         }
 
         public override bool Equals(ResourceRecord? other)

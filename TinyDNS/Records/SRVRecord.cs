@@ -23,7 +23,7 @@ namespace TinyDNS.Records
         public ushort Weight { get; }
         public string Target { get { return string.Join('.', TargetLabels); } }
 
-        internal SRVRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos)
+        internal SRVRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
             pos += 2;
             Priority = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));

@@ -13,17 +13,17 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using TinyDNS.Cache;
 using TinyDNS.Enums;
 using TinyDNS.Records;
 
 namespace TinyDNS
 {
-    public sealed class DNSResolver : IDisposable
+    public sealed class DNSResolver
     {
         public const int PORT = 53;
         private readonly HashSet<IPAddress> globalNameservers = [];
-        private readonly Socket v4socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        private readonly Socket v6socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+        private ResolverCache cache = new ResolverCache();
         public DNSResolver()
         {
             ReloadNameservers();
@@ -149,108 +149,133 @@ namespace TinyDNS
             recursionCount++;
             if (recursionCount > 10)
                 return null;
-            Socket socket = new Socket(SocketType.Dgram, ProtocolType.Udp);
-            Memory<byte> buffer = new byte[512];
-            Message query = new Message();
-            query.Questions = [question];
-            foreach (IPAddress nsIP in nameservers)
+
+            ResourceRecord[]? cacheHits = cache.Search(question);
+            if (cacheHits != null && cacheHits.Length > 0)
             {
-                int bytes;
-                try
+                Message msg = new Message();
+                msg.Response = true;
+                msg.Questions = [question];
+                msg.Answers = cacheHits;
+                return msg;
+            }
+
+            Socket? socket = null;
+            try
+            {
+                socket = new Socket(SocketType.Dgram, ProtocolType.Udp);
+                Memory<byte> buffer = new byte[512];
+                Message query = new Message();
+                query.Questions = [question];
+
+                foreach (IPAddress nsIP in nameservers)
                 {
-                    int len = query.ToBytes(buffer.Span);
-                    await socket.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(nsIP, PORT));
-                    bytes = await socket.ReceiveAsync(buffer, SocketFlags.None, new CancellationTokenSource(3000).Token);
-                }
-                catch (SocketException) { continue; }
-                catch (OperationCanceledException) { continue; }
-
-                try
-                {
-                    Message response = new Message(buffer.Slice(0, bytes).Span);
-
-                    //If there is a name error abort and return to the user
-                    if (response.ResponseCode == DNSStatus.NameError)
-                        return response;
-
-                    //For any other error try a different nameserver
-                    if (response.ResponseCode != DNSStatus.OK)
-                        continue;
-
-                    //Check if we have a valid answer
-                    foreach (ResourceRecord answer in response.Answers)
+                    int bytes;
+                    try
                     {
-                        if (answer.Type == question.Type)
-                            return response;
+                        int len = query.ToBytes(buffer.Span);
+                        await socket.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(nsIP, PORT));
+                        bytes = await socket.ReceiveAsync(buffer, SocketFlags.None, new CancellationTokenSource(3000).Token);
                     }
-                    foreach (ResourceRecord additional in response.Additionals)
-                    {
-                        if (question.Name.SequenceEqual(additional.Labels) && additional.Type == question.Type)
-                            return response;
-                    }
+                    catch (SocketException) { continue; }
+                    catch (OperationCanceledException) { continue; }
 
-                    //Check if we have a cname redirect
-                    foreach (ResourceRecord answer in response.Answers)
+                    try
                     {
-                        if (answer is CNameRecord cname)
+                        Message response = new Message(buffer.Slice(0, bytes).Span);
+
+                        //If there is a name error abort and return to the user
+                        if (response.ResponseCode == DNSStatus.NameError)
+                            return response;
+
+                        //For any other error try a different nameserver
+                        if (response.ResponseCode != DNSStatus.OK)
+                            continue;
+
+                        //Check if we have a valid answer
+                        cache.Store(response.Answers);
+                        cache.Store(response.Authorities);
+                        cache.Store(response.Additionals);
+                        foreach (ResourceRecord answer in response.Answers)
                         {
-                            question.Name = cname.CNameLabels;
-                            Console.WriteLine(recursionCount + ": Following CName: " + cname.CName);
+                            if (answer.Type == question.Type)
+                                return response;
+                        }
+                        foreach (ResourceRecord additional in response.Additionals)
+                        {
+                            if (question.Name.SequenceEqual(additional.Labels) && additional.Type == question.Type)
+                                return response;
+                        }
+
+                        //Check if we have a cname redirect
+                        foreach (ResourceRecord answer in response.Answers)
+                        {
+                            if (answer is CNameRecord cname)
+                            {
+                                question.Name = cname.CNameLabels;
                                 return await ResolveQueryInternal(question, nameservers, recursionCount);
+                            }
+                        }
+
+                        //If not, do we need recursive resolution
+                        if (!response.RecursionAvailable && response.Answers.Length == 0 && response.Authorities.Length > 0)
+                        {
+                            HashSet<string> nextNS = new HashSet<string>();
+                            foreach (ResourceRecord authority in response.Authorities)
+                            {
+                                if (authority is NSRecord ns)
+                                    nextNS.Add(ns.NSDomain);
+                            }
+                            if (nextNS.Count > 0)
+                            {
+                                HashSet<IPAddress> nextNSIPs = new HashSet<IPAddress>();
+                                foreach (ResourceRecord additional in response.Additionals)
+                                {
+                                    if (nsIP.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
+                                        nextNSIPs.Add(a.Address);
+                                    if (nsIP.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
+                                        nextNSIPs.Add(aaaa.Address);
+                                }
+
+                                //We have a NS without IP
+                                if (!nextNSIPs.Any())
+                                {
+                                    List<IPAddress> addresses;
+                                    string nextNameserver = nextNS.First();
+                                    cacheHits = cache.Search(new QuestionRecord(nextNameserver, (nsIP.AddressFamily == AddressFamily.InterNetwork) ? DNSRecordType.A : DNSRecordType.AAAA, false));
+
+                                    if (cacheHits?.Length > 0)
+                                    {
+                                        addresses = new List<IPAddress>();
+                                        foreach (ResourceRecord r in cacheHits)
+                                        {
+                                            if (r is ARecord a)
+                                                addresses.Add(a.Address);
+                                            else if (r is AAAARecord aaaa)
+                                                addresses.Add(aaaa.Address);
+                                        }
+                                    }
+                                    else if (nsIP.AddressFamily == AddressFamily.InterNetwork)
+                                        addresses = await ResolveHostV4(nextNameserver);
+                                    else
+                                        addresses = await ResolveHostV6(nextNameserver);
+                                    foreach (IPAddress addr in addresses)
+                                        nextNSIPs.Add(addr);
+                                }
+
+                                if (nextNSIPs.Any())
+                                    return await ResolveQueryInternal(question, nextNSIPs, recursionCount);
+                            }
                         }
                     }
-
-                    //If not, do we need recursive resolution
-                    if (!response.RecursionAvailable && response.Answers.Length == 0 && response.Authorities.Length > 0)
-                    {
-                        HashSet<string> nextNS = new HashSet<string>();
-                        foreach (ResourceRecord authority in response.Authorities)
-                        {
-                            if (authority is NSRecord ns)
-                               nextNS.Add(ns.NSDomain);
-                        }
-                        if (nextNS.Count > 0)
-                        {
-                            HashSet<IPAddress> nextNSIPs = new HashSet<IPAddress>();
-                            foreach (ResourceRecord additional in response.Additionals)
-                            {
-                                if (nsIP.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
-                                    nextNSIPs.Add(a.Address);
-                                if (nsIP.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
-                                    nextNSIPs.Add(aaaa.Address);
-                            }
-
-                            //We have a NS without IP
-                            if (!nextNSIPs.Any())
-                            {
-                                List<IPAddress> addresses;
-                                string nextNameserver = nextNS.First();
-                                Console.WriteLine(recursionCount + ": Resolving NS " + nextNameserver);
-                                if (nsIP.AddressFamily == AddressFamily.InterNetwork)
-                                    addresses = await ResolveHostV4(nextNameserver);
-                                else
-                                    addresses = await ResolveHostV6(nextNameserver);
-                                foreach (IPAddress addr in addresses)
-                                    nextNSIPs.Add(addr);
-                            }
-
-                            if (nextNSIPs.Any())
-                            {
-                                Console.WriteLine(recursionCount + ": Querying NS " + nextNS.First());
-                                return await ResolveQueryInternal(question, nextNSIPs, recursionCount);
-                            }
-                        }
-                    }
+                    catch (InvalidDataException ex) { continue; } //Try the next NS
                 }
-                catch (InvalidDataException ex) { Console.WriteLine(ex); continue; } //Try the next NS
+            }
+            finally
+            {
+                socket?.Dispose();
             }
             return null;
-        }
-
-        public void Dispose()
-        {
-            v4socket.Dispose();
-            v6socket.Dispose();
         }
     }
 }
