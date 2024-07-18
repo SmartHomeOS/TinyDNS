@@ -27,7 +27,7 @@ namespace TinyDNS.Records
 
         public PtrRecord(string domain, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.PTR, @class, ttl)
         {
-            DomainLabels = new List<string>(domain.Split('.'));
+            DomainLabels = DomainParser.Parse(domain);
         }
 
         public PtrRecord(ResourceRecordHeader header, string rdata) : base(header)

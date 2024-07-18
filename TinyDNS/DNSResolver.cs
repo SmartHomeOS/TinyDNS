@@ -203,7 +203,7 @@ namespace TinyDNS
                         }
                         foreach (ResourceRecord additional in response.Additionals)
                         {
-                            if (question.Name.SequenceEqual(additional.Labels) && additional.Type == question.Type)
+                            if (question.Name.SequenceEqual(additional.Labels, new DomainEqualityComparer()) && additional.Type == question.Type)
                                 return response;
                         }
 

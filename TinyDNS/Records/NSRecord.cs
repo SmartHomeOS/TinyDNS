@@ -25,9 +25,9 @@ namespace TinyDNS.Records
             NSDomainLabels = DomainParser.Read(buffer, ref pos);
         }
 
-        public NSRecord(string cname, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.NS, @class, ttl)
+        public NSRecord(string ns, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.NS, @class, ttl)
         {
-            NSDomainLabels = new List<string>(cname.Split('.'));
+            NSDomainLabels = DomainParser.Parse(ns);
         }
 
         public NSRecord(ResourceRecordHeader header, string rdata) : base(header)

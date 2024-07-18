@@ -21,7 +21,7 @@ namespace TinyDNS.Records
         public DNSRecordType Type { get; set; }
         public DNSClass Class { get; set; }
         public bool UnicastResponse { get; set; }
-        public QuestionRecord(string domain, DNSRecordType recordType, bool unicastResponse) : this(new List<string>(domain.Split('.')), recordType, unicastResponse) {  }
+        public QuestionRecord(string domain, DNSRecordType recordType, bool unicastResponse) : this(DomainParser.Parse(domain), recordType, unicastResponse) {  }
 
         public QuestionRecord(List<string> domain, DNSRecordType recordType, bool unicastResponse)
         { 

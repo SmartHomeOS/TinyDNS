@@ -10,6 +10,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System.Globalization;
 using System.Text;
 
 namespace TinyDNS
@@ -80,10 +81,31 @@ namespace TinyDNS
             buffer[pos++] = ROOT;
         }
 
-        internal static List<string> Parse(string domain)
+        public static List<string> Parse(string domain)
         {
-            //TODO - Handle escaped chars
-            return domain.Split('.', StringSplitOptions.TrimEntries).ToList();
+            List<string> labels = new List<string>();
+            StringBuilder label = new StringBuilder();
+            for (int i = 0; i < domain.Length; i++)
+            {
+                if (domain[i] == '\\')
+                {
+                    //Escaped char follows
+                    if (char.IsAsciiHexDigit(domain[++i]))
+                        label.Append((char)int.Parse(domain.AsSpan().Slice(i++, 2), NumberStyles.HexNumber)); //2 digit char code
+                    else
+                        label.Append(domain[i]); //single character
+                }
+                else if (domain[i] == '.')
+                {
+                    labels.Add(label.ToString());
+                    label.Clear();
+                }
+                else
+                    label.Append(domain[i]);
+            }
+            if (label.Length > 0)
+                labels.Add(label.ToString());
+            return labels;
         }
     }
 }

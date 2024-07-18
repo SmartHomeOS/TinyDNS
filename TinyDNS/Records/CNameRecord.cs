@@ -27,7 +27,7 @@ namespace TinyDNS.Records
 
         public CNameRecord(string cname, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.CNAME, @class, ttl)
         {
-            CNameLabels = new List<string>(cname.Split('.'));
+            CNameLabels = DomainParser.Parse(cname);
         }
 
         public CNameRecord(ResourceRecordHeader header, string rdata) : base(header)

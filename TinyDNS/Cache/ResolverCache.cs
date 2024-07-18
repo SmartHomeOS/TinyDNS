@@ -15,7 +15,7 @@ namespace TinyDNS.Cache
 
         public void Store(ResourceRecord record)
         {
-            HashSet<ResourceRecord> recordSet = cache.GetOrAdd(record.Name, new HashSet<ResourceRecord>());
+            HashSet<ResourceRecord> recordSet = cache.GetOrAdd(record.Name.ToLowerInvariant(), new HashSet<ResourceRecord>());
             lock (recordSet)
             {
                 DateTime now = DateTime.Now;
@@ -26,7 +26,7 @@ namespace TinyDNS.Cache
 
         public ResourceRecord[]? Search(QuestionRecord question)
         {
-            if (cache.TryGetValue(string.Join('.', question.Name), out HashSet<ResourceRecord>? recordSet))
+            if (cache.TryGetValue(string.Join('.', question.Name).ToLowerInvariant(), out HashSet<ResourceRecord>? recordSet))
             {
                 lock (recordSet)
                 {

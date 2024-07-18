@@ -37,7 +37,7 @@ namespace TinyDNS.Records
 
         public SRVRecord(string service, ushort priority, ushort port, ushort weight, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.SRV, @class, ttl)
         {
-            TargetLabels = new List<string>(service.Split('.'));
+            TargetLabels = DomainParser.Parse(service);
             Priority = priority;
             Port = port;
             Weight = weight;
