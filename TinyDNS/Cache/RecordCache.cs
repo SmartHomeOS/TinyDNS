@@ -13,30 +13,19 @@
 using System.Collections.Concurrent;
 using System.Net;
 
-namespace TinyDNS
+namespace TinyDNS.Cache
 {
     internal sealed class RecordCache
     {
-        private struct RecordEntry : IEquatable<RecordEntry>
-        {
-            public Message message;
-            public IPAddress Address;
-
-            public bool Equals(RecordEntry other)
-            {
-                if (Address.Equals(other.Address))
-                    return message.Equals(other.message);
-
-                return false;
-            }
-        }
-
         readonly int sizeLimit;
+        readonly TimeSpan ttl;
         private readonly ConcurrentStack<RecordEntry> stack = new ConcurrentStack<RecordEntry>();
 
-        public RecordCache(int sizeLimit)
+        public RecordCache(int sizeLimit, TimeSpan ttl)
         {
             this.sizeLimit = sizeLimit;
+            this.ttl = ttl;
+
         }
 
         public void Clear()
@@ -46,15 +35,27 @@ namespace TinyDNS
 
         public bool Cached(Message message, IPAddress endPoint)
         {
+            Expire();
             RecordEntry entry = new RecordEntry();
             entry.message = message;
             entry.Address = endPoint;
+            entry.Time = DateTime.Now;
             if (stack.Contains(entry))
                 return true;
             stack.Push(entry);
             if (stack.Count > sizeLimit)
                 stack.TryPop(out _);
             return false;
+        }
+
+        private void Expire()
+        {
+            while (stack.TryPeek(out RecordEntry entry))
+            {
+                if (entry.Time + ttl > DateTime.Now)
+                    return;
+                stack.TryPop(out _);
+            }
         }
     }
 }

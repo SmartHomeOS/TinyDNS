@@ -14,6 +14,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using TinyDNS.Cache;
 using TinyDNS.Enums;
 using TinyDNS.Events;
 using TinyDNS.Records;
@@ -33,7 +34,7 @@ namespace TinyDNS
 
         public delegate Task MessageEventHandler(DNSMsgEvent e);
         public event MessageEventHandler? AnswerReceived;
-        private readonly RecordCache messageCache = new RecordCache(25);
+        private readonly RecordCache messageCache = new RecordCache(100, TimeSpan.FromSeconds(5));
         private readonly bool UNICAST_SUPPORTED;
 
         public MDNS()
@@ -60,8 +61,7 @@ namespace TinyDNS
             NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
             foreach (NetworkInterface nic in nics)
             {
-                if (nic.OperationalStatus != OperationalStatus.Up ||
-                    !nic.SupportsMulticast ||
+                if (nic.OperationalStatus != OperationalStatus.Up || !nic.SupportsMulticast ||
                     nic.NetworkInterfaceType == NetworkInterfaceType.Tunnel ||
                     nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
                     nic.IsReceiveOnly)
