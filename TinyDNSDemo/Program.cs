@@ -12,24 +12,23 @@
 
 using System.Net;
 using TinyDNS;
+using TinyDNS.Enums;
 
 internal class Program
 {
     static async Task Main()
     {
-        List<IPAddress> addresses = DNSSources.RootNameservers;
-        DNSResolver resolver = new DNSResolver(addresses); //From root hints
+        DNSResolver resolver = new DNSResolver(DNSSources.CloudflareDNSAddresses, ResolutionMode.SecureWithFallback); //From root hints
         string host = "google.com";
         List<IPAddress> ip = await resolver.ResolveHost(host);
         if (ip.Count > 0)
             Console.WriteLine($"Resolved {host} as {ip[0]}");
-        List<IPAddress> ip2 = await resolver.ResolveHost(host);
+        List<IPAddress> ip2 = await resolver.ResolveHostV6("mail." + host);
         if (ip2.Count == 0)
             Console.WriteLine("Unable to resolve IPs");
         else
         {
-            Console.WriteLine($"Resolved {host} as {ip2[0]}");
-            //Console.WriteLine($"Resolved {ip[0]} as " + await resolver.ResolveIP(ip[0]));
+            Console.WriteLine($"Resolved mail.{host} as {ip2[0]}");
         }
         Console.ReadLine();
     }

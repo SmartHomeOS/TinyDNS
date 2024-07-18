@@ -18,7 +18,7 @@ namespace TinyDNS
 {
     public sealed class Message : IEquatable<Message>
     {
-        public ushort transaction;
+        public ushort TransactionID { get; set; }
         public bool Response { get; set; }
         public bool RecursionDesired { get; set; }
         public bool RecursionAvailable { get; set; }
@@ -31,7 +31,7 @@ namespace TinyDNS
         public Message()
         {
             RecursionDesired = true;
-            transaction = (ushort)new Random().Next(ushort.MaxValue);
+            TransactionID = (ushort)new Random().Next(ushort.MaxValue);
         }
         /// <summary>
         /// Create a DNS Message from a byte buffer
@@ -44,7 +44,7 @@ namespace TinyDNS
             byte op = buffer[2];
             if ((op & 0x2) == 0x2)
                 throw new InvalidDataException("Message Truncated");
-            transaction = BinaryPrimitives.ReadUInt16BigEndian(buffer);
+            TransactionID = BinaryPrimitives.ReadUInt16BigEndian(buffer);
             Response = (op & 0x80) == 0x80;
             Authoritative = (op & 0x4) == 0x4; 
             RecursionDesired = (op & 0x1) == 0x1;
@@ -79,7 +79,7 @@ namespace TinyDNS
         public ResourceRecord[] Additionals { get; set; } = [];
         public int ToBytes(Span<byte> buffer)
         {
-            BinaryPrimitives.WriteUInt16BigEndian(buffer, transaction);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer, TransactionID);
             byte op = (byte)(((byte)Operation & 0xF) << 3);
             if (Response)
                 op |= 0x80;

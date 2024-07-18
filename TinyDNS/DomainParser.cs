@@ -91,7 +91,7 @@ namespace TinyDNS
                 {
                     //Escaped char follows
                     if (char.IsAsciiHexDigit(domain[++i]))
-                        label.Append((char)int.Parse(domain.AsSpan().Slice(i++, 2), NumberStyles.HexNumber)); //2 digit char code
+                        label.Append((char)int.Parse(domain.AsSpan().Slice(i++, 2), NumberStyles.HexNumber)); //2 digit hex code
                     else
                         label.Append(domain[i]); //single character
                 }
