@@ -26,6 +26,8 @@ namespace TinyDNS.Enums
         AAAA = 0x1C,
         SRV = 0x21,
         DNAME = 0x27,
+        SVCB = 0x40,
+        HTTPS = 0x41,
         ANY = 0xFF,
     }
 }

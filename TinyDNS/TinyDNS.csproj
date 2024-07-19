@@ -5,7 +5,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<Version>0.5</Version>
+	<PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+	<Authors>jdomnitz</Authors>
+	<Company>SmartHomeOS and Contributors</Company>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">

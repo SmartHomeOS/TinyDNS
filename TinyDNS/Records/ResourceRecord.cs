@@ -61,6 +61,9 @@ namespace TinyDNS.Records
                 case DNSRecordType.NS:
                     record = new NSRecord(header, buffer, ref pos);
                     break;
+                case DNSRecordType.SOA:
+                    record = new SOARecord(header, buffer, ref pos);
+                    break;
                 default:
                     record = new UnsupportedRecord(header, buffer, ref pos);
                     break;
