@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Globalization;
+using System.Net;
 using System.Text;
 
 namespace TinyDNS
@@ -106,6 +107,11 @@ namespace TinyDNS
             if (label.Length > 0)
                 labels.Add(label.ToString());
             return labels;
+        }
+
+        internal static List<string> FromIP(IPAddress address)
+        {
+            return FromIP(address.GetAddressBytes());
         }
 
         internal static List<string> FromIP(byte[] address)

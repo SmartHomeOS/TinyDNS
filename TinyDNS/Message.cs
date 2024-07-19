@@ -142,7 +142,9 @@ namespace TinyDNS
 
         public override bool Equals(object? obj)
         {
-            return Equals(obj as Message);
+            if (obj is Message message)
+                return Equals(message);
+            return false;
         }
 
         public override string ToString()

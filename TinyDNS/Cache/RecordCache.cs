@@ -19,42 +19,44 @@ namespace TinyDNS.Cache
     {
         readonly int sizeLimit;
         readonly TimeSpan ttl;
-        private readonly ConcurrentStack<RecordEntry> stack = new ConcurrentStack<RecordEntry>();
+        private readonly ConcurrentQueue<RecordEntry> cache = new ConcurrentQueue<RecordEntry>();
 
         public RecordCache(int sizeLimit, TimeSpan ttl)
         {
             this.sizeLimit = sizeLimit;
             this.ttl = ttl;
-
         }
 
         public void Clear()
         {
-            stack.Clear();
+            cache.Clear();
         }
 
-        public bool Cached(Message message, IPAddress endPoint)
+        public bool Cached(Message message, IPAddress endPointIP)
         {
             Expire();
             RecordEntry entry = new RecordEntry();
             entry.message = message;
-            entry.Address = endPoint;
+            entry.Address = endPointIP;
             entry.Time = DateTime.Now;
-            if (stack.Contains(entry))
-                return true;
-            stack.Push(entry);
-            if (stack.Count > sizeLimit)
-                stack.TryPop(out _);
+            lock (cache)
+            {
+                if (cache.Contains(entry))
+                    return true;
+                cache.Enqueue(entry);
+            }
+            if (cache.Count > sizeLimit)
+                cache.TryDequeue(out _);
             return false;
         }
 
         private void Expire()
         {
-            while (stack.TryPeek(out RecordEntry entry))
+            while (cache.TryPeek(out RecordEntry entry))
             {
                 if (entry.Time + ttl > DateTime.Now)
                     return;
-                stack.TryPop(out _);
+                cache.TryDequeue(out _);
             }
         }
     }

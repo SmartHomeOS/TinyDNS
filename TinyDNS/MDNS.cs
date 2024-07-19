@@ -208,7 +208,7 @@ namespace TinyDNS
 
         public async Task<List<Message>> ResolveInverseQuery(IPAddress address, bool unicastResponse = false)
         {
-            var domain = DomainParser.FromIP(address.GetAddressBytes());
+            var domain = DomainParser.FromIP(address);
             List<Message> responses = new List<Message>();
             MessageEventHandler handler = delegate (DNSMessageEvent e)
             {

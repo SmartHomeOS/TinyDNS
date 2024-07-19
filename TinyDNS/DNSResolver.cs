@@ -26,13 +26,21 @@ namespace TinyDNS
         private readonly HashSet<IPAddress> globalNameservers = [];
         private ResolverCache cache = new ResolverCache();
         private ResolutionMode resolutionMode;
+        /// <summary>
+        /// Create a new DNS resolver
+        /// </summary>
+        /// <param name="mode">Which strategy to use to resolve queries</param>
         public DNSResolver(ResolutionMode mode = ResolutionMode.InsecureOnly)
         {
             this.resolutionMode = mode;
             ReloadNameservers();
             NetworkChange.NetworkAddressChanged += (s, e) => ReloadNameservers();
         }
-
+        /// <summary>
+        /// Create a new DNS resolver
+        /// </summary>
+        /// <param name="nameservers">the nameservers to query</param>
+        /// <param name="mode">Which strategy to use to resolve queries</param>
         public DNSResolver(List<IPAddress> nameservers, ResolutionMode mode = ResolutionMode.InsecureOnly)
         {
             this.resolutionMode = mode;
@@ -40,6 +48,9 @@ namespace TinyDNS
                 this.globalNameservers.Add(nameserver);
         }
 
+        /// <summary>
+        /// The nameservers to query
+        /// </summary>
         public List<IPAddress> NameServers
         { 
             get
@@ -68,6 +79,11 @@ namespace TinyDNS
             }
         }
 
+        /// <summary>
+        /// Resolve a hostname to it's IP addresses
+        /// </summary>
+        /// <param name="hostname">domain name</param>
+        /// <returns>domain's IPs</returns>
         public async Task<List<IPAddress>> ResolveHost(string hostname)
         {
             ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
@@ -79,6 +95,11 @@ namespace TinyDNS
             return addresses;
         }
 
+        /// <summary>
+        /// Resolve a hostname to it's IP v4 addresses
+        /// </summary>
+        /// <param name="hostname">domain name</param>
+        /// <returns>domain's IPs</returns>
         public async Task<List<IPAddress>> ResolveHostV4(string hostname)
         {
             ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
@@ -100,6 +121,11 @@ namespace TinyDNS
             return addresses;
         }
 
+        /// <summary>
+        /// Resolve a hostname to it's IPv6 addresses
+        /// </summary>
+        /// <param name="hostname">domain name</param>
+        /// <returns>domain's IPs</returns>
         public async Task<List<IPAddress>> ResolveHostV6(string hostname)
         {
             ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
@@ -121,6 +147,12 @@ namespace TinyDNS
             return addresses;
         }
 
+        /// <summary>
+        /// Lookup the domain name for an IP address
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns>The response message</returns>
+        /// <exception cref="ArgumentNullException"></exception>
         public async Task<Message?> ResolveIPRecord(IPAddress address)
         {
             if (address == null)
@@ -129,6 +161,12 @@ namespace TinyDNS
             bool privateQuery = IsPrivate(address, addressBytes);
             return await ResolveQuery(new QuestionRecord(DomainParser.FromIP(addressBytes), DNSRecordType.PTR, false), privateQuery);
         }
+
+        /// <summary>
+        /// Lookup the domain name for an IP address
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns>The domain</returns>
         public async Task<string?> ResolveIP(IPAddress address)
         {
             Message? response = await ResolveIPRecord(address);
@@ -143,6 +181,11 @@ namespace TinyDNS
             return null;
         }
 
+        /// <summary>
+        /// Sends a query and returns the response message
+        /// </summary>
+        /// <param name="question"></param>
+        /// <returns></returns>
         public async Task<Message?> ResolveQuery(QuestionRecord question)
         {
             bool privateQuery = (question.Name.Last() == "local");

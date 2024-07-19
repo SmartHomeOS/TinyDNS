@@ -22,10 +22,19 @@ namespace TinyDNS.Cache
 
         public bool Equals(RecordEntry other)
         {
-            if (Address.Equals(other.Address))
-                return message.Equals(other.message);
+            return message.Equals(other.message);
+        }
 
+        public override bool Equals(object? obj)
+        {
+            if (obj is RecordEntry entry)
+                return Equals(entry);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return message.GetHashCode();
         }
     }
 }
