@@ -70,6 +70,7 @@ namespace TinyDNS
 
         public async Task<List<IPAddress>> ResolveHost(string hostname)
         {
+            ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
             List<IPAddress> addresses = 
                 [
                     .. await ResolveHostV4(hostname),
@@ -80,6 +81,7 @@ namespace TinyDNS
 
         public async Task<List<IPAddress>> ResolveHostV4(string hostname)
         {
+            ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
             List<IPAddress> addresses = new List<IPAddress>();
             Message? response = await ResolveQuery(new QuestionRecord(hostname, DNSRecordType.A, false));
             if (response == null || response.ResponseCode != DNSStatus.NoError || (response.Answers.Length == 0 && response.Additionals.Length == 0))
@@ -100,6 +102,7 @@ namespace TinyDNS
 
         public async Task<List<IPAddress>> ResolveHostV6(string hostname)
         {
+            ArgumentNullException.ThrowIfNullOrEmpty(hostname, nameof(hostname));
             List<IPAddress> addresses = new List<IPAddress>();
             Message? response = await ResolveQuery(new QuestionRecord(hostname, DNSRecordType.AAAA, false));
             if (response == null || response.ResponseCode != DNSStatus.NoError || (response.Answers.Length == 0 && response.Additionals.Length == 0))
@@ -120,31 +123,11 @@ namespace TinyDNS
 
         public async Task<Message?> ResolveIPRecord(IPAddress address)
         {
+            if (address == null)
+                throw new ArgumentNullException(nameof(address));
             byte[] addressBytes = address.GetAddressBytes();
-            List<string> host;
             bool privateQuery = IsPrivate(address, addressBytes);
-            if (address.AddressFamily == AddressFamily.InterNetwork)
-            {
-                host = new List<string>(6);
-                for (int i = addressBytes.Length - 1; i >= 0; i--)
-                    host.Add(addressBytes[i].ToString());
-
-                host.Add("in-addr");
-                host.Add("arpa");
-            }
-            else
-            {
-                host = new List<string>(34);
-                for (int i = addressBytes.Length - 1; i >= 0; i--)
-                {
-                    string hex = addressBytes[i].ToString("x2");
-                    host.Add(hex.Substring(1, 1));
-                    host.Add(hex.Substring(0, 1));
-                }
-                host.Add("IP6");
-                host.Add("ARPA");
-            }
-            return await ResolveQuery(new QuestionRecord(host, DNSRecordType.PTR, false), privateQuery);
+            return await ResolveQuery(new QuestionRecord(DomainParser.FromIP(addressBytes), DNSRecordType.PTR, false), privateQuery);
         }
         public async Task<string?> ResolveIP(IPAddress address)
         {

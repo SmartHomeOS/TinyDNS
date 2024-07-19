@@ -14,9 +14,9 @@ using System.Net;
 
 namespace TinyDNS.Events
 {
-    public class DNSMsgEvent : EventArgs
+    public class DNSMessageEvent : EventArgs
     {
-        public DNSMsgEvent(Message msg, IPEndPoint endPoint)
+        public DNSMessageEvent(Message msg, IPEndPoint endPoint)
         {
             Message = msg;
             RemoteEndPoint = endPoint;

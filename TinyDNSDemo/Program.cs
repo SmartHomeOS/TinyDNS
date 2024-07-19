@@ -10,26 +10,43 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-using System.Net;
-using TinyDNS;
-using TinyDNS.Enums;
+using TinyDNSDemo;
 
 internal class Program
 {
     static async Task Main()
     {
-        DNSResolver resolver = new DNSResolver(DNSSources.CloudflareDNSAddresses, ResolutionMode.SecureWithFallback); //From root hints
-        string host = "google.com";
-        List<IPAddress> ip = await resolver.ResolveHost(host);
-        if (ip.Count > 0)
-            Console.WriteLine($"Resolved {host} as {ip[0]}");
-        List<IPAddress> ip2 = await resolver.ResolveHostV6("mail." + host);
-        if (ip2.Count == 0)
-            Console.WriteLine("Unable to resolve IPs");
-        else
+        while (true)
         {
-            Console.WriteLine($"Resolved mail.{host} as {ip2[0]}");
+            PrintWelcome();
+            string? cmd = Console.ReadLine();
+            if (cmd == "1")
+            {
+                Console.Clear();
+                await Dig.Run();
+            }
+            else if (cmd == "2")
+            {
+                Console.Clear();
+                await EasyDNS.Run();
+            }
+            else if (cmd == "3")
+                return;
+            else
+            {
+                Console.WriteLine("Invalid Selection!");
+                await Task.Delay(2000);
+            }
         }
-        Console.ReadLine();
+    }
+
+    private static void PrintWelcome()
+    {
+        Console.Clear();
+        Console.WriteLine("Welcome to the TinyDNS Demo");
+        Console.WriteLine("Press 1 to launch Tiny DIG");
+        Console.WriteLine("Press 2 to launch Easy DNS");
+        Console.WriteLine("Press 3 to exit\n");
+        Console.Write("Selection: ");
     }
 }

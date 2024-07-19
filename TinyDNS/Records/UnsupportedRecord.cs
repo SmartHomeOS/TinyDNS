@@ -48,5 +48,10 @@ namespace TinyDNS.Records
                 return base.Equals(other) && RData.Equals(unsupported.RData);
             return false;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{RData.Length} Bytes";
+        }
     }
 }

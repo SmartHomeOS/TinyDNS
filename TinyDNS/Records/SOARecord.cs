@@ -25,6 +25,7 @@ namespace TinyDNS.Records
         public TimeSpan Expire { get; set; }
         public TimeSpan Minimum { get; set; }
         public string MName { get { return string.Join('.', MNameLabels); } }
+        public string RName { get { return string.Join('.', RNameLabels); } }
 
         internal SOARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
@@ -56,6 +57,11 @@ namespace TinyDNS.Records
             if (other is SOARecord otherSOA)
                 return base.Equals(other) && MNameLabels.SequenceEqual(otherSOA.MNameLabels) && Serial.Equals(otherSOA.Serial);
             return false;
+        }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{MName}\t{RName}\t{Serial}\t{Refresh}\t{Retry}\t{Expire}\t{Minimum}";
         }
     }
 }

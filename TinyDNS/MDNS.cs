@@ -32,8 +32,10 @@ namespace TinyDNS
         private readonly Socket? listenerV6;
         private readonly List<Socket> senders = [];
 
-        public delegate Task MessageEventHandler(DNSMsgEvent e);
+        public delegate Task MessageEventHandler(DNSMessageEvent e);
         public event MessageEventHandler? AnswerReceived;
+        public delegate Task ErrorEventHandler(DNSErrorEvent e);
+        public event ErrorEventHandler? OnError;
         private readonly RecordCache messageCache = new RecordCache(100, TimeSpan.FromSeconds(5));
         private readonly bool UNICAST_SUPPORTED;
 
@@ -91,6 +93,7 @@ namespace TinyDNS
 
         private async Task ReceiveV4()
         {
+            IPEndPoint? sender = null;
             try
             {
                 Memory<byte> buffer = new byte[8972];
@@ -99,13 +102,14 @@ namespace TinyDNS
                     try
                     {
                         SocketReceiveFromResult received = await listenerV4!.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, PORT), stop.Token);
+                        sender = (IPEndPoint)received.RemoteEndPoint;
                         Message msg = new Message(buffer.Slice(0, received.ReceivedBytes).Span);
                         if (msg.Response && msg.ResponseCode == DNSStatus.NoError && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
                         {
-                            if (messageCache.Cached(msg, ((IPEndPoint)received.RemoteEndPoint).Address))
+                            if (messageCache.Cached(msg, sender.Address))
                                 continue;
                             if (AnswerReceived != null)
-                                await AnswerReceived(new DNSMsgEvent(msg, (IPEndPoint)received.RemoteEndPoint));
+                                await AnswerReceived(new DNSMessageEvent(msg, (IPEndPoint)received.RemoteEndPoint));
                         }
                     }
                     catch (InvalidDataException) { }
@@ -114,12 +118,14 @@ namespace TinyDNS
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                //TODO: logger.Error(ex, "Failed to parse DNS answer");
+                if (OnError != null)
+                    await OnError(new DNSErrorEvent(ex, sender));
             }
         }
 
         private async Task ReceiveV6()
         {
+            IPEndPoint? sender = null;
             try
             {
                 Memory<byte> buffer = new byte[8952];
@@ -128,13 +134,14 @@ namespace TinyDNS
                     try
                     {
                         SocketReceiveFromResult received = await listenerV6!.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.IPv6Any, PORT), stop.Token);
+                        sender = (IPEndPoint)received.RemoteEndPoint;
                         Message msg = new Message(buffer.Slice(0, received.ReceivedBytes).Span);
                         if (msg.Response && msg.ResponseCode == DNSStatus.NoError && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
                         {
                             if (messageCache.Cached(msg, ((IPEndPoint)received.RemoteEndPoint).Address))
                                 continue;
                             if (AnswerReceived != null)
-                                await AnswerReceived(new DNSMsgEvent(msg, (IPEndPoint)received.RemoteEndPoint));
+                                await AnswerReceived(new DNSMessageEvent(msg, (IPEndPoint)received.RemoteEndPoint));
                         }
                     }
                     catch (InvalidDataException) { }
@@ -143,12 +150,16 @@ namespace TinyDNS
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                //TODO: logger.Error(ex, "Failed to parse DNS answer");
+                if (OnError != null)
+                    await OnError(new DNSErrorEvent(ex, sender));
             }
         }
 
+        [Obsolete("Use Query instead")]
         public async Task QueryAny(string domain, bool unicastResponse = false)
         {
+            if (!domain.Contains('.'))
+                domain = string.Concat(domain, ".local");
             messageCache.Clear();
             Message msg = new Message();
             msg.Response = false;
@@ -160,6 +171,8 @@ namespace TinyDNS
 
         public async Task QueryServices(string domain)
         {
+            if (!domain.Contains('.'))
+                domain = string.Concat(domain, ".local");
             Message msg = new Message();
             msg.Response = false;
             msg.Questions = [
@@ -169,44 +182,83 @@ namespace TinyDNS
             await SendMessage(msg);
         }
 
-        public async Task QueryTxts(string domain)
+        public async Task Query(string domain, DNSRecordType type, bool unicastResponse = false)
         {
+            if (!domain.Contains('.'))
+                domain = string.Concat(domain, ".local");
             Message msg = new Message();
             msg.Response = false;
             msg.Questions = [
-                new QuestionRecord(domain, DNSRecordType.TXT, false)
+                new QuestionRecord(domain, type, unicastResponse && UNICAST_SUPPORTED)
             ];
             await SendMessage(msg);
         }
 
-        public async Task QueryPointers(string domain)
+        public async Task Query(List<string> domain, DNSRecordType type, bool unicastResponse = false)
         {
+            if (domain.Count <= 1)
+                domain.Add("local");
             Message msg = new Message();
             msg.Response = false;
             msg.Questions = [
-                new QuestionRecord(domain, DNSRecordType.PTR, false)
+                new QuestionRecord(domain, type, unicastResponse && UNICAST_SUPPORTED)
             ];
             await SendMessage(msg);
         }
 
-        public async Task QueryIPv4Addresses(string domain)
+        public async Task<List<Message>> ResolveInverseQuery(IPAddress address, bool unicastResponse = false)
         {
-            Message msg = new Message();
-            msg.Response = false;
-            msg.Questions = [
-                new QuestionRecord(domain, DNSRecordType.A, false)
-            ];
-            await SendMessage(msg);
+            var domain = DomainParser.FromIP(address.GetAddressBytes());
+            List<Message> responses = new List<Message>();
+            MessageEventHandler handler = delegate (DNSMessageEvent e)
+            {
+                bool validDomain = false;
+                bool validType = false;
+                foreach (ResourceRecord answer in e.Message.Answers)
+                {
+                    if (answer.Labels.SequenceEqual(domain, new DomainEqualityComparer()))
+                        validDomain = true;
+                    if (answer.Type == DNSRecordType.PTR)
+                        validType = true;
+                }
+                if (validDomain && validType)
+                    responses.Add(e.Message);
+                return Task.CompletedTask;
+            };
+
+            AnswerReceived += handler;
+            await Query(domain, DNSRecordType.PTR, unicastResponse);
+            await Task.Delay(3000);
+            AnswerReceived -= handler;
+            return responses;
         }
 
-        public async Task QueryIPv6Addresses(string domain)
+        public async Task<List<Message>> ResolveQuery(string domain, DNSRecordType type, bool unicastResponse = false)
         {
-            Message msg = new Message();
-            msg.Response = false;
-            msg.Questions = [
-                new QuestionRecord(domain, DNSRecordType.AAAA, false)
-            ];
-            await SendMessage(msg);
+            if (!domain.Contains('.'))
+                domain = string.Concat(domain, ".local");
+            List<Message> responses = new List<Message>();
+            MessageEventHandler handler = delegate(DNSMessageEvent e)
+            {
+                bool validDomain = false;
+                bool validType = false;
+                foreach (ResourceRecord answer in e.Message.Answers)
+                {
+                    if (answer.Name.Equals(domain, StringComparison.OrdinalIgnoreCase))
+                        validDomain = true;
+                    if (answer.Type == type)
+                        validType = true;
+                }
+                if (validDomain && validType)
+                    responses.Add(e.Message);
+                return Task.CompletedTask;
+            };
+
+            AnswerReceived += handler;
+            await Query(domain, type, unicastResponse);
+            await Task.Delay(3000);
+            AnswerReceived -= handler;
+            return responses;
         }
 
         private async Task SendMessage(Message msg)

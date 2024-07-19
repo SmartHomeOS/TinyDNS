@@ -52,5 +52,10 @@ namespace TinyDNS.Records
                 return base.Equals(other) && Strings.Equals(otherTxt.Strings);
             return false;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{string.Join(',', Strings)}";
+        }
     }
 }

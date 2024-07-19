@@ -107,5 +107,32 @@ namespace TinyDNS
                 labels.Add(label.ToString());
             return labels;
         }
+
+        internal static List<string> FromIP(byte[] address)
+        {
+            List<string> host;
+            if (address.Length == 4)
+            {
+                host = new List<string>(6);
+                for (int i = address.Length - 1; i >= 0; i--)
+                    host.Add(address[i].ToString());
+
+                host.Add("in-addr");
+                host.Add("arpa");
+            }
+            else
+            {
+                host = new List<string>(34);
+                for (int i = address.Length - 1; i >= 0; i--)
+                {
+                    string hex = address[i].ToString("x2");
+                    host.Add(hex.Substring(1, 1));
+                    host.Add(hex.Substring(0, 1));
+                }
+                host.Add("IP6");
+                host.Add("ARPA");
+            }
+            return host;
+        }
     }
 }

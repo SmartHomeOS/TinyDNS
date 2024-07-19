@@ -49,5 +49,10 @@ namespace TinyDNS.Records
                 return base.Equals(other) && Port == otherSrv.Port && TargetLabels.Equals(otherSrv.TargetLabels);
             return false;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{Priority}\t{Weight}\t{Port}\t{Target}";
+        }
     }
 }
