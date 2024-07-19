@@ -93,14 +93,14 @@ namespace TinyDNS
         {
             try
             {
-                Memory<byte> buffer = new byte[9000];
+                Memory<byte> buffer = new byte[8972];
                 while (!stop.IsCancellationRequested)
                 {
                     try
                     {
                         SocketReceiveFromResult received = await listenerV4!.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, PORT), stop.Token);
                         Message msg = new Message(buffer.Slice(0, received.ReceivedBytes).Span);
-                        if (msg.Response && msg.ResponseCode == DNSStatus.OK && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
+                        if (msg.Response && msg.ResponseCode == DNSStatus.NoError && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
                         {
                             if (messageCache.Cached(msg, ((IPEndPoint)received.RemoteEndPoint).Address))
                                 continue;
@@ -122,14 +122,14 @@ namespace TinyDNS
         {
             try
             {
-                Memory<byte> buffer = new byte[9000];
+                Memory<byte> buffer = new byte[8952];
                 while (!stop.IsCancellationRequested)
                 {
                     try
                     {
                         SocketReceiveFromResult received = await listenerV6!.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.IPv6Any, PORT), stop.Token);
                         Message msg = new Message(buffer.Slice(0, received.ReceivedBytes).Span);
-                        if (msg.Response && msg.ResponseCode == DNSStatus.OK && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
+                        if (msg.Response && msg.ResponseCode == DNSStatus.NoError && (msg.Answers.Length > 0 || msg.Additionals.Length > 0))
                         {
                             if (messageCache.Cached(msg, ((IPEndPoint)received.RemoteEndPoint).Address))
                                 continue;
@@ -189,9 +189,32 @@ namespace TinyDNS
             await SendMessage(msg);
         }
 
+        public async Task QueryIPv4Addresses(string domain)
+        {
+            Message msg = new Message();
+            msg.Response = false;
+            msg.Questions = [
+                new QuestionRecord(domain, DNSRecordType.A, false)
+            ];
+            await SendMessage(msg);
+        }
+
+        public async Task QueryIPv6Addresses(string domain)
+        {
+            Message msg = new Message();
+            msg.Response = false;
+            msg.Questions = [
+                new QuestionRecord(domain, DNSRecordType.AAAA, false)
+            ];
+            await SendMessage(msg);
+        }
+
         private async Task SendMessage(Message msg)
         {
             Memory<byte> buffer = new byte[512];
+            msg.TransactionID = 0;
+            msg.RecursionDesired = false;
+            msg.RecursionAvailable = false;
             int len = msg.ToBytes(buffer.Span);
             foreach (Socket sender in senders)
             {

@@ -41,5 +41,10 @@ namespace TinyDNS.Records
                 return base.Equals(other) && CNameLabels.SequenceEqual(otherCName.CNameLabels);
             return false;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{CName}";
+        }
     }
 }

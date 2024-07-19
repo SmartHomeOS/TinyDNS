@@ -41,7 +41,7 @@ namespace TinyDNS.Records
             Labels = DomainParser.Parse(columns[0]);
             Type = DNSRecordParser.Parse(columns[2]);
             uint ttl = uint.Parse(columns[1]);
-            Class = DNSClass.Internet;
+            Class = DNSClass.IN;
             Expires = DateTime.Now + TimeSpan.FromSeconds(ttl);
         }
 

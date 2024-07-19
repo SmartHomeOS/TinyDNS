@@ -13,6 +13,7 @@
 using TinyDNS.Enums;
 using TinyDNS.Records;
 using System.Buffers.Binary;
+using System.Text;
 
 namespace TinyDNS
 {
@@ -142,6 +143,55 @@ namespace TinyDNS
         public override bool Equals(object? obj)
         {
             return Equals(obj as Message);
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(";; Operation: ");
+            sb.Append(Operation);
+            sb.Append(", Status: ");
+            sb.Append(ResponseCode);
+            sb.Append(", ID: ");
+            sb.AppendLine(TransactionID.ToString());
+            sb.Append(";; Flags:");
+            if (Response)
+                sb.Append(" qr");
+            if (RecursionDesired)
+                sb.Append(" rd");
+            if (RecursionAvailable)
+                sb.Append(" ra");
+            sb.Append("; QUERY: ");
+            sb.Append(Questions.Length.ToString());
+            sb.Append(", ANSWER: ");
+            sb.Append(Answers.Length.ToString());
+            sb.Append(", AUTHORITY: ");
+            sb.Append(Authorities.Length.ToString());
+            sb.Append(", ADDITIONAL: ");
+            sb.AppendLine(Additionals.Length.ToString());
+            sb.AppendLine();
+            if (Questions.Length > 0)
+            {
+                sb.AppendLine(";; Questions:");
+                foreach (QuestionRecord question in Questions)
+                    sb.AppendLine(question.ToString());
+                sb.AppendLine();
+            }
+            if (Answers.Length > 0)
+            {
+                sb.AppendLine(";; Answers:");
+                foreach (ResourceRecord answer in Answers)
+                    sb.AppendLine(answer.ToString());
+                sb.AppendLine();
+            }
+            if (Authorities.Length > 0)
+            {
+                sb.AppendLine(";; Authority:");
+                foreach (ResourceRecord authority in Authorities)
+                    sb.AppendLine(authority.ToString());
+                sb.AppendLine();
+            }
+            return sb.ToString();
         }
     }
 }

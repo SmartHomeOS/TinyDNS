@@ -40,7 +40,19 @@ namespace TinyDNS
                 this.globalNameservers.Add(nameserver);
         }
 
-        public List<IPAddress> NameServers { get { return globalNameservers.ToList(); } }
+        public List<IPAddress> NameServers
+        { 
+            get
+            { 
+                return globalNameservers.ToList(); 
+            } 
+            set
+            {
+                globalNameservers.Clear();
+                foreach (IPAddress nameserver in value)
+                    globalNameservers.Add(nameserver);
+            }
+        }
 
         private void ReloadNameservers()
         {
@@ -70,7 +82,7 @@ namespace TinyDNS
         {
             List<IPAddress> addresses = new List<IPAddress>();
             Message? response = await ResolveQuery(new QuestionRecord(hostname, DNSRecordType.A, false));
-            if (response == null || response.ResponseCode != DNSStatus.OK || (response.Answers.Length == 0 && response.Additionals.Length == 0))
+            if (response == null || response.ResponseCode != DNSStatus.NoError || (response.Answers.Length == 0 && response.Additionals.Length == 0))
                 return addresses;
 
             foreach (ResourceRecord answer in response.Answers)
@@ -90,7 +102,7 @@ namespace TinyDNS
         {
             List<IPAddress> addresses = new List<IPAddress>();
             Message? response = await ResolveQuery(new QuestionRecord(hostname, DNSRecordType.AAAA, false));
-            if (response == null || response.ResponseCode != DNSStatus.OK || (response.Answers.Length == 0 && response.Additionals.Length == 0))
+            if (response == null || response.ResponseCode != DNSStatus.NoError || (response.Answers.Length == 0 && response.Additionals.Length == 0))
                 return addresses;
 
             foreach (ResourceRecord answer in response.Answers)
@@ -106,7 +118,7 @@ namespace TinyDNS
             return addresses;
         }
 
-        public async Task<string?> ResolveIP(IPAddress address)
+        public async Task<Message?> ResolveIPRecord(IPAddress address)
         {
             byte[] addressBytes = address.GetAddressBytes();
             List<string> host;
@@ -132,8 +144,12 @@ namespace TinyDNS
                 host.Add("IP6");
                 host.Add("ARPA");
             }
-            Message? response = await ResolveQuery(new QuestionRecord(host, DNSRecordType.PTR, false), privateQuery);
-            if (response == null || response.ResponseCode != DNSStatus.OK)
+            return await ResolveQuery(new QuestionRecord(host, DNSRecordType.PTR, false), privateQuery);
+        }
+        public async Task<string?> ResolveIP(IPAddress address)
+        {
+            Message? response = await ResolveIPRecord(address);
+            if (response == null || response.ResponseCode != DNSStatus.NoError)
                 return null;
 
             foreach (ResourceRecord answer in response.Answers)
@@ -225,7 +241,7 @@ namespace TinyDNS
                             return response;
 
                         //For any other error try a different nameserver
-                        if (response.ResponseCode != DNSStatus.OK)
+                        if (response.ResponseCode != DNSStatus.NoError)
                             continue;
 
                         //Add new info to the cache

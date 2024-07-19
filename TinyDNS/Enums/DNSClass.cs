@@ -14,12 +14,12 @@ namespace TinyDNS.Enums
 {
     public enum DNSClass : ushort
     {
-        Reserved = 0,
-        Internet = 1,
-        Unassigned = 2,
+        RESERVED = 0,
+        IN = 1,
+        UNASSIGNED = 2,
         CHAOS = 3,
-        Hesiod = 4,
-        None = 254,
-        Any = 255
+        HESIOD = 4,
+        NONE = 254,
+        ANY = 255
     }
 }

@@ -17,7 +17,7 @@ namespace TinyDNS.Enums
         /// <summary>
         /// No Error
         /// </summary>
-        OK = 0,
+        NoError = 0,
         /// <summary>
         /// Format Error
         /// </summary>

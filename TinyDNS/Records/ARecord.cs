@@ -49,5 +49,10 @@ namespace TinyDNS.Records
         {
             return Address.GetHashCode() + (int)Type;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{Address}";
+        }
     }
 }

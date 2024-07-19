@@ -41,5 +41,10 @@ namespace TinyDNS.Records
                 return base.Equals(other) && DomainLabels.SequenceEqual(otherPtr.DomainLabels);
             return false;
         }
+
+        public override string ToString()
+        {
+            return base.ToString() + $"\t{Domain}";
+        }
     }
 }

@@ -109,5 +109,11 @@ namespace TinyDNS.Records
             }
             return record;
         }
+
+        public override string ToString()
+        {
+            int ttl = (int)Math.Ceiling((Expires - DateTime.Now).TotalSeconds);
+            return $"{Name}\t{ttl}\t{Class}\t{Type}";
+        }
     }
 }

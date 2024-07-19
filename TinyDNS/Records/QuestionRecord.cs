@@ -27,7 +27,7 @@ namespace TinyDNS.Records
         { 
             Name = domain;
             Type = recordType;
-            Class = DNSClass.Internet;
+            Class = DNSClass.IN;
             UnicastResponse = unicastResponse;
         }
 
@@ -64,6 +64,11 @@ namespace TinyDNS.Records
         public override bool Equals(object? obj)
         {
             return Equals(obj as QuestionRecord);
+        }
+
+        public override string ToString()
+        {
+            return $"{string.Join('.',Name)}\t{Class}\t{Type}";
         }
     }
 }
