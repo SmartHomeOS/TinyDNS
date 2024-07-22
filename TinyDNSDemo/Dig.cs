@@ -72,13 +72,22 @@ namespace TinyDNSDemo
                 if ((cmds.Length - i) == 3)
                 {
                     nameserver = cmds[i].Substring(1);
-                    domain = cmds[i + 1];
-                    if (!Enum.TryParse<DNSRecordType>(cmds[i + 2].ToUpper().Replace("*", "ANY"), out DNSRecordType rcd))
+                    if (cmds[i + 1] == "-x")
                     {
-                        Console.Error.WriteLine("Invalid Record Type");
-                        return;
+                        inverse = true;
+                        address = IPAddress.Parse(cmds[i + 2]);
+                        break;
                     }
-                    recordType = rcd;
+                    else
+                    {
+                        domain = cmds[i + 1];
+                        if (!Enum.TryParse<DNSRecordType>(cmds[i + 2].ToUpper().Replace("*", "ANY"), out DNSRecordType rcd))
+                        {
+                            Console.Error.WriteLine("Invalid Record Type");
+                            return;
+                        }
+                        recordType = rcd;
+                    }
                     break;
                 }
                 else if ((cmds.Length - i) == 2)
@@ -151,6 +160,22 @@ namespace TinyDNSDemo
                         {
                             Console.Error.WriteLine("Invalid Address");
                             return;
+                        }
+                        resolver.NameServers = DNSSources.CloudflareDNSAddresses;
+                        if (nameserver != null)
+                        {
+                            if (!IPAddress.TryParse(nameserver, out IPAddress? ns))
+                            {
+                                var ips = await resolver.ResolveHost(nameserver);
+                                if (ips.Count == 0)
+                                {
+                                    Console.Error.WriteLine($"Invalid Nameserver: {nameserver}");
+                                    return;
+                                }
+                                resolver.NameServers = ips;
+                            }
+                            else
+                                resolver.NameServers = [ns];
                         }
                         var result = await resolver.ResolveIPRecord(address);
                         if (result == null)

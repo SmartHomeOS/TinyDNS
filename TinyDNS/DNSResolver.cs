@@ -227,7 +227,7 @@ namespace TinyDNS
                 foreach (IPAddress nsIP in nameservers)
                 {
                     //Prevent leaking local domains into the global DNS space
-                    if (privateQuery && IsPrivate(nsIP))
+                    if (privateQuery && !IsPrivate(nsIP))
                         return null;
 
                     int bytes;
