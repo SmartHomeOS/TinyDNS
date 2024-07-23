@@ -228,7 +228,7 @@ namespace TinyDNS
                 {
                     //Prevent leaking local domains into the global DNS space
                     if (privateQuery && !IsPrivate(nsIP))
-                        return null;
+                        continue;
 
                     int bytes;
                     try
@@ -262,11 +262,7 @@ namespace TinyDNS
                     {
                         Message response = new Message(buffer.Slice(0, bytes).Span);
 
-                        //If there is a name error abort and return to the user
-                        if (response.ResponseCode == DNSStatus.NameError)
-                            return response;
-
-                        //For any other error try a different nameserver
+                        //For any error try a different nameserver
                         if (response.ResponseCode != DNSStatus.NoError)
                             continue;
 
