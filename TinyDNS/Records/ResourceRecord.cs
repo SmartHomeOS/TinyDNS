@@ -58,6 +58,9 @@ namespace TinyDNS.Records
                 case DNSRecordType.CNAME:
                     record = new CNameRecord(header, buffer, ref pos);
                     break;
+                case DNSRecordType.DNAME:
+                    record = new DNameRecord(header, buffer, ref pos);
+                    break;
                 case DNSRecordType.NS:
                     record = new NSRecord(header, buffer, ref pos);
                     break;
@@ -99,6 +102,9 @@ namespace TinyDNS.Records
                     break;
                 case DNSRecordType.CNAME:
                     record = new CNameRecord(header, columns[3]);
+                    break;
+                case DNSRecordType.DNAME:
+                    record = new DNameRecord(header, columns[3]);
                     break;
                 case DNSRecordType.NS:
                     record = new NSRecord(header, columns[3]);
