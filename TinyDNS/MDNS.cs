@@ -206,6 +206,30 @@ namespace TinyDNS
             await SendMessage(msg);
         }
 
+        /// <summary>
+        /// Lookup the domain name for an IP address
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns>The domain</returns>
+        public async Task<string?> ResolveIP(IPAddress address)
+        {
+            List<Message> responses = await ResolveInverseQuery(address);
+            foreach (Message response in responses)
+            {
+                foreach (ResourceRecord answer in response.Answers)
+                {
+                    if (answer is PtrRecord ptr)
+                    {
+                        var labels = ptr.DomainLabels;
+                        if (labels.Count > 1)
+                            labels.RemoveAt(labels.Count - 1); //Remove .local
+                        return string.Join('.', labels);
+                    }
+                }
+            }
+            return null;
+        }
+
         public async Task<List<Message>> ResolveInverseQuery(IPAddress address, bool unicastResponse = false)
         {
             var domain = DomainParser.FromIP(address);

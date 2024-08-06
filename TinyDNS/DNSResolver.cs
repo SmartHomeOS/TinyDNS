@@ -69,14 +69,18 @@ namespace TinyDNS
         {
             globalNameservers.Clear();
             var nics = NetworkInterface.GetAllNetworkInterfaces();
+            IPAddress? gateway = null;
             foreach (var nic in nics)
             {
                 if (nic.OperationalStatus == OperationalStatus.Up && !nic.IsReceiveOnly && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 {
                     foreach (IPAddress ns in nic.GetIPProperties().DnsAddresses)
                         globalNameservers.Add(ns);
+                    gateway ??= nic.GetIPProperties().GatewayAddresses.FirstOrDefault()?.Address;
                 }
             }
+            if (gateway != null)
+                globalNameservers.Add(gateway); //Always fall back to the gateway
         }
 
         /// <summary>
