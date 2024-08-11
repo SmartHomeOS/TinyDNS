@@ -67,6 +67,10 @@ namespace TinyDNS.Records
                 case DNSRecordType.SOA:
                     record = new SOARecord(header, buffer, ref pos);
                     break;
+                case DNSRecordType.HTTPS:
+                case DNSRecordType.SVCB:
+                    record = new SvcbRecord(header, buffer, ref pos);
+                    break;
                 default:
                     record = new UnsupportedRecord(header, buffer, ref pos);
                     break;
