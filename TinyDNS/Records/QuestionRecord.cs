@@ -70,5 +70,10 @@ namespace TinyDNS.Records
         {
             return $"{string.Join('.',Name)}\t{Class}\t{Type}";
         }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode() + (int)Class;
+        }
     }
 }

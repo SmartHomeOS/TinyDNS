@@ -195,5 +195,10 @@ namespace TinyDNS
             }
             return sb.ToString();
         }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode() + TransactionID;
+        }
     }
 }

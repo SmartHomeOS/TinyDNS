@@ -348,7 +348,7 @@ namespace TinyDNS
                             }
                         }
                     }
-                    catch (InvalidDataException ex) { continue; } //Try the next NS
+                    catch (InvalidDataException) { continue; } //Try the next NS
                 }
             }
             finally
