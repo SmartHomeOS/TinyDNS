@@ -20,6 +20,8 @@
                     return DNSRecordType.TXT;
                 case "CNAME":
                     return DNSRecordType.CNAME;
+                case "DNAME":
+                    return DNSRecordType.DNAME;
                 default:
                     return DNSRecordType.None;
             }

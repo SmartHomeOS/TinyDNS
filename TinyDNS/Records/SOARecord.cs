@@ -19,7 +19,7 @@ namespace TinyDNS.Records
     {
         public List<string> MNameLabels { get; }
         public List<string> RNameLabels { get; }
-        public Version Serial { get; set; }
+        public uint Serial { get; set; }
         public TimeSpan Refresh { get; set; }
         public TimeSpan Retry { get; set; }
         public TimeSpan Expire { get; set; }
@@ -32,7 +32,7 @@ namespace TinyDNS.Records
             pos += 2;
             MNameLabels = DomainParser.Read(buffer, ref pos);
             RNameLabels = DomainParser.Read(buffer, ref pos);
-            Serial = new Version((int)BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4)), 0);
+            Serial = BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4));
             pos += 4;
             Refresh = TimeSpan.FromSeconds(BinaryPrimitives.ReadInt32BigEndian(buffer.Slice(pos, 4)));
             pos += 4;
@@ -49,7 +49,6 @@ namespace TinyDNS.Records
             MNameLabels = DomainParser.Parse(mname);
             RNameLabels = DomainParser.Parse(rname);
             Minimum = minimum;
-            Serial = new Version();
         }
 
         public override bool Equals(ResourceRecord? other)
