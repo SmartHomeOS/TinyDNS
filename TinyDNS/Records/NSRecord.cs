@@ -42,6 +42,15 @@ namespace TinyDNS.Records
             return false;
         }
 
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            foreach (var label in NSDomainLabels)
+                hc.Add(label);
+            int code = hc.ToHashCode();
+            return code;
+        }
+
         public override string ToString()
         {
             return base.ToString() + $"\t{NSDomain}";

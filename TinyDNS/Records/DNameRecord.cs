@@ -11,7 +11,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers.Binary;
-using System.Net;
 using TinyDNS.Enums;
 
 namespace TinyDNS.Records

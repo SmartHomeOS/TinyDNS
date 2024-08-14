@@ -17,15 +17,17 @@ namespace TinyDNS.Records
 {
     public class QuestionRecord : IEquatable<QuestionRecord>
     {
-        public List<string> Name { get; set; }
+        public List<string> NameLabels { get; set; }
+        public string Name { get { return string.Join(',', NameLabels); } }
         public DNSRecordType Type { get; set; }
         public DNSClass Class { get; set; }
         public bool UnicastResponse { get; set; }
+
         public QuestionRecord(string domain, DNSRecordType recordType, bool unicastResponse) : this(DomainParser.Parse(domain), recordType, unicastResponse) {  }
 
         public QuestionRecord(List<string> domain, DNSRecordType recordType, bool unicastResponse)
         { 
-            Name = domain;
+            NameLabels = domain;
             Type = recordType;
             Class = DNSClass.IN;
             UnicastResponse = unicastResponse;
@@ -33,7 +35,7 @@ namespace TinyDNS.Records
 
         internal QuestionRecord(Span<byte> buffer, ref int pos)
         {
-            Name = DomainParser.Read(buffer, ref pos);
+            NameLabels = DomainParser.Read(buffer, ref pos);
             Type = (DNSRecordType)BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
             pos += 2;
             Class = (DNSClass)BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
@@ -44,7 +46,7 @@ namespace TinyDNS.Records
 
         public void Write(Span<byte> buffer, ref int pos)
         {
-            DomainParser.Write(Name, buffer, ref pos);
+            DomainParser.Write(NameLabels, buffer, ref pos);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), (ushort)Type);
             pos += 2;
             ushort ClassVal = (ushort)Class;
@@ -58,7 +60,7 @@ namespace TinyDNS.Records
         {
             if (other == null)
                 return false;
-            return Name.SequenceEqual(other.Name);
+            return NameLabels.SequenceEqual(other.NameLabels);
         }
 
         public override bool Equals(object? obj)
@@ -68,12 +70,12 @@ namespace TinyDNS.Records
 
         public override string ToString()
         {
-            return $"{string.Join('.',Name)}\t{Class}\t{Type}";
+            return $"{Name}\t{Class}\t{Type}";
         }
 
         public override int GetHashCode()
         {
-            return Name.GetHashCode() + (int)Class;
+            return NameLabels.GetHashCode() + (int)Class;
         }
     }
 }

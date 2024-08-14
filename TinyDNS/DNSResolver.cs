@@ -192,7 +192,7 @@ namespace TinyDNS
         /// <returns></returns>
         public async Task<Message?> ResolveQuery(QuestionRecord question)
         {
-            bool privateQuery = (question.Name.Last() == "local");
+            bool privateQuery = (question.NameLabels.Last() == "local");
             return await ResolveQueryInternal(question, globalNameservers, privateQuery);
         }
 
@@ -283,7 +283,7 @@ namespace TinyDNS
                         }
                         foreach (ResourceRecord additional in response.Additionals)
                         {
-                            if (question.Name.SequenceEqual(additional.Labels, new DomainEqualityComparer()) && additional.Type == question.Type)
+                            if (question.NameLabels.SequenceEqual(additional.Labels, new DomainEqualityComparer()) && additional.Type == question.Type)
                                 return response;
                         }
 
@@ -292,7 +292,7 @@ namespace TinyDNS
                         {
                             if (answer is CNameRecord cname)
                             {
-                                question.Name = cname.CNameLabels;
+                                question.NameLabels = cname.CNameLabels;
                                 return await ResolveQueryInternal(question, nameservers, privateQuery, recursionCount);
                             }
                         }
