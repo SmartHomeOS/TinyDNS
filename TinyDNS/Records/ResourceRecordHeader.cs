@@ -21,6 +21,7 @@ namespace TinyDNS.Records
         public DNSRecordType Type { get; set; }
         public List<string> Labels { get; set; }
         public DateTime Expires { get; set; }
+        public DateTime Created { get; set; }
         public bool CacheFlush { get; set; }
 
         public ResourceRecordHeader(Span<byte> buffer, ref int pos)
@@ -32,7 +33,8 @@ namespace TinyDNS.Records
             pos += 2;
             CacheFlush = (recordClass & 0x8000) == 0x8000;
             Class = (DNSClass)(recordClass & 0x7FFF);
-            Expires = DateTime.Now + TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4)));
+            Created = DateTime.Now;
+            Expires = Created + TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(buffer.Slice(pos, 4)));
             pos += 4;
         }
 
@@ -42,7 +44,8 @@ namespace TinyDNS.Records
             Type = DNSRecordParser.Parse(columns[2]);
             uint ttl = uint.Parse(columns[1]);
             Class = DNSClass.IN;
-            Expires = DateTime.Now + TimeSpan.FromSeconds(ttl);
+            Created = DateTime.Now;
+            Expires = Created + TimeSpan.FromSeconds(ttl);
         }
 
         public ResourceRecordHeader(List<string> labels, DNSRecordType type, DNSClass @class, uint ttl)
@@ -50,7 +53,8 @@ namespace TinyDNS.Records
             this.Labels = labels;
             this.Type = type;
             this.Class = @class;
-            this.Expires = DateTime.Now + TimeSpan.FromSeconds(ttl);
+            Created = DateTime.Now;
+            Expires = Created + TimeSpan.FromSeconds(ttl);
         }
 
         public void Write(Span<byte> buffer, ref int pos)
@@ -62,6 +66,10 @@ namespace TinyDNS.Records
             if (CacheFlush)
                 ClassVal |= 0x8000;
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), ClassVal);
+            pos += 2;
+            uint ttl = (uint)(Expires - DateTime.Now).TotalSeconds;
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(pos, 4), ttl);
+            pos += 4;
         }
     }
 }

@@ -19,6 +19,7 @@ namespace TinyDNS.Records
         public DNSClass Class { get { return header.Class; } set { header.Class = value; } }
         public DNSRecordType Type { get { return header.Type; } set { header.Type = value; } }
         public List<string> Labels { get { return header.Labels; } set { header.Labels = value; } }
+        public DateTime Created { get { return header.Created; } set { header.Created = value; } }
         public DateTime Expires { get { return header.Expires; } set { header.Expires = value; } }
         public bool CacheFlush { get { return header.CacheFlush; } set { header.CacheFlush = value; } }
         public string Name { get { return string.Join('.', header.Labels); } }
@@ -78,14 +79,37 @@ namespace TinyDNS.Records
             return record;
         }
 
-        public void Write(Span<byte> buffer, ref int pos)
+        public virtual void Write(Span<byte> buffer, ref int pos)
         {
             header.Write(buffer, ref pos);
         }
 
+        public override bool Equals(object? obj)
+        {
+            if (obj is ResourceRecord record)
+                return Equals(record);
+            return false;
+        }
+
         public virtual bool Equals(ResourceRecord? other)
         {
-            return Type == other!.Type && Name.SequenceEqual(other!.Name);
+            if (other == null)
+                return false;
+            return Type == other!.Type && Labels.SequenceEqual(other!.Labels);
+        }
+
+        protected HashCode GetBaseHash()
+        {
+            HashCode hc = new HashCode();
+            hc.Add(Type);
+            foreach (var label in Labels)
+                hc.Add(label);
+            return hc;
+        }
+
+        public override int GetHashCode()
+        {
+            return GetBaseHash().ToHashCode();
         }
 
         internal static ResourceRecord Parse(string line)

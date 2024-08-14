@@ -38,6 +38,15 @@ namespace TinyDNS.Records
             Address = IPAddress.Parse(rdata);
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), 4);
+            pos += 2;
+            Address.TryWriteBytes(buffer.Slice(pos, 4), out _);
+            pos += 4;
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is ARecord otherA)
@@ -47,7 +56,9 @@ namespace TinyDNS.Records
 
         public override int GetHashCode()
         {
-            return Address.GetHashCode() + (int)Type;
+            HashCode hc = GetBaseHash();
+            hc.Add(Address);
+            return hc.ToHashCode();
         }
 
         public override string ToString()

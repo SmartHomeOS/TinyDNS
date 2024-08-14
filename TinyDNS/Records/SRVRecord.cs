@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers.Binary;
+using System.Net;
 using TinyDNS.Enums;
 
 namespace TinyDNS.Records
@@ -43,11 +44,38 @@ namespace TinyDNS.Records
             Weight = weight;
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            //Length
+            pos += 2;
+            int start = pos;
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), Priority);
+            pos += 2;
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), Weight);
+            pos += 2;
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), Port);
+            pos += 2;
+            DomainParser.Write(TargetLabels, buffer, ref pos);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos- start));
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is SRVRecord otherSrv)
-                return base.Equals(other) && Port == otherSrv.Port && TargetLabels.Equals(otherSrv.TargetLabels);
+                return base.Equals(other) && Port == otherSrv.Port && TargetLabels.SequenceEqual(otherSrv.TargetLabels);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            hc.Add(Port);
+            hc.Add(Priority);
+            hc.Add(Weight);
+            foreach (string label in TargetLabels)
+                hc.Add(label);
+            return hc.ToHashCode();
         }
 
         public override string ToString()

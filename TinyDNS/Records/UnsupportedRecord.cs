@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers.Binary;
+using System.Net;
 using System.Text;
 using TinyDNS.Enums;
 
@@ -42,11 +43,27 @@ namespace TinyDNS.Records
             RData = Encoding.UTF8.GetBytes(rdata);
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), (ushort)RData.Length);
+            pos += 2;
+            RData.CopyTo(buffer.Slice(pos, RData.Length));
+            pos += RData.Length;
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is UnsupportedRecord unsupported)
                 return base.Equals(other) && RData.Equals(unsupported.RData);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            hc.Add(RData);
+            return hc.ToHashCode();
         }
 
         public override string ToString()

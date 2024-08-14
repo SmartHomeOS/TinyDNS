@@ -10,6 +10,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System.Buffers.Binary;
+using System.Net;
 using TinyDNS.Enums;
 
 namespace TinyDNS.Records
@@ -35,11 +37,28 @@ namespace TinyDNS.Records
             DNameLabels = DomainParser.Parse(rdata);
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            pos += 2;
+            int start = pos;
+            DomainParser.Write(DNameLabels, buffer, ref pos);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos- start));
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is DNameRecord otherDName)
                 return base.Equals(other) && DNameLabels.SequenceEqual(otherDName.DNameLabels);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            foreach (string label in DNameLabels)
+                hc.Add(label);
+            return hc.ToHashCode();
         }
 
         public override string ToString()

@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers.Binary;
+using System.Net;
 using System.Text;
 using TinyDNS.Enums;
 
@@ -46,11 +47,25 @@ namespace TinyDNS.Records
             Strings = strings;
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            //TODO
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is TxtRecord otherTxt)
-                return base.Equals(other) && Strings.Equals(otherTxt.Strings);
+                return base.Equals(other) && Strings.SequenceEqual(otherTxt.Strings);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            foreach (string txtString in Strings)
+                hc.Add(txtString);
+            return hc.ToHashCode();
         }
 
         public override string ToString()
