@@ -51,11 +51,42 @@ namespace TinyDNS.Records
             Minimum = minimum;
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            pos += 2;
+            int start = pos;
+            DomainParser.Write(MNameLabels, buffer, ref pos);
+            DomainParser.Write(RNameLabels, buffer, ref pos);
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(pos, 4), Serial);
+            pos += 4;
+            BinaryPrimitives.WriteInt32BigEndian(buffer.Slice(pos, 4), (int)Refresh.TotalSeconds);
+            pos += 4;
+            BinaryPrimitives.WriteInt32BigEndian(buffer.Slice(pos, 4), (int)Retry.TotalSeconds);
+            pos += 4;
+            BinaryPrimitives.WriteInt32BigEndian(buffer.Slice(pos, 4), (int)Expire.TotalSeconds);
+            pos += 4;
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(pos, 4), (uint)Minimum.TotalSeconds);
+            pos += 4;
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos - start));
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is SOARecord otherSOA)
                 return base.Equals(other) && MNameLabels.SequenceEqual(otherSOA.MNameLabels) && Serial.Equals(otherSOA.Serial);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            hc.Add(Serial);
+            foreach (string label in MNameLabels)
+                hc.Add(label);
+            foreach (string label in RNameLabels)
+                hc.Add(label);
+            return hc.ToHashCode();
         }
 
         public override string ToString()

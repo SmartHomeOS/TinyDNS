@@ -10,26 +10,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace TinyDNS.Enums
+namespace TinyDNS.Cache
 {
-    public enum DNSRecordType : ushort
+    public enum CacheUpdateResult : byte
     {
-        None = 0x00,
-        A = 0x01,
-        NS = 0x02,
-        CNAME = 0x05,
-        SOA = 0x06,
-        PTR = 0x0C,
-        HINFO = 0x0D,
-        MX = 0x0F,
-        TXT = 0x10,
-        AAAA = 0x1C,
-        SRV = 0x21,
-        DNAME = 0x27,
-        OPT = 0x29,
-        NSEC = 0x2F,
-        SVCB = 0x40,
-        HTTPS = 0x41,
-        ANY = 0xFF,
+        NoUpdate = 0,
+        Update = 1,
+        NewData = 2
     }
 }

@@ -42,10 +42,10 @@ namespace TinyDNS
         /// <exception cref="InvalidDataException"></exception>
         public Message(Span<byte> buffer)
         {
+            TransactionID = BinaryPrimitives.ReadUInt16BigEndian(buffer);
             byte op = buffer[2];
             if ((op & 0x2) == 0x2)
                 throw new InvalidDataException("Message Truncated");
-            TransactionID = BinaryPrimitives.ReadUInt16BigEndian(buffer);
             Response = (op & 0x80) == 0x80;
             Authoritative = (op & 0x4) == 0x4; 
             RecursionDesired = (op & 0x1) == 0x1;

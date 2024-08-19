@@ -57,8 +57,7 @@ namespace TinyDNS.Records
             HashCode hc = GetBaseHash();
             foreach (var label in DomainLabels)
                 hc.Add(label);
-            int code = hc.ToHashCode();
-            return code;
+            return hc.ToHashCode();
         }
 
         public override string ToString()

@@ -22,12 +22,15 @@ namespace TinyDNS.Records
 
         internal TxtRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
         {
+            byte len = 0;
+            ushort rLen = 0;
             List<string> strings = [];
-            ushort rLen = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
+            rLen = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
             pos += 2;
-            while (rLen > 0)
+            
+            while (rLen > 0 && pos < buffer.Length)
             {
-                byte len = buffer[pos++];
+                len = buffer[pos++];
                 rLen--;
                 if (len > 0)
                 {
@@ -36,8 +39,8 @@ namespace TinyDNS.Records
                     rLen -= len;
                 }
             }
-            if (rLen < 0)
-                throw new InvalidDataException("Currupted TXT record");
+            if (rLen != 0)
+                throw new InvalidDataException($"Currupted TXT record");
             Strings = strings;
         }
 
@@ -49,7 +52,14 @@ namespace TinyDNS.Records
         public override void Write(Span<byte> buffer, ref int pos)
         {
             base.Write(buffer, ref pos);
-            //TODO
+            pos += 2;
+            int start = pos;
+            foreach (string s in Strings)
+            {
+                buffer[pos++] = (byte)s.Length;
+                pos += Encoding.UTF8.GetBytes(s, buffer.Slice(pos));
+            }
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos - start));
         }
 
         public override bool Equals(ResourceRecord? other)

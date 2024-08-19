@@ -23,6 +23,7 @@ namespace TinyDNS.Records
         public DateTime Expires { get { return header.Expires; } set { header.Expires = value; } }
         public bool CacheFlush { get { return header.CacheFlush; } set { header.CacheFlush = value; } }
         public string Name { get { return string.Join('.', header.Labels); } }
+        internal bool Stale { get; set; }
         protected ResourceRecordHeader header;
 
         public ResourceRecord(ResourceRecordHeader header)

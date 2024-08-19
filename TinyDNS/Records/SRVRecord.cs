@@ -56,7 +56,7 @@ namespace TinyDNS.Records
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), Port);
             pos += 2;
             DomainParser.Write(TargetLabels, buffer, ref pos);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos- start));
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(start - 2, 2), (ushort)(pos - start));
         }
 
         public override bool Equals(ResourceRecord? other)

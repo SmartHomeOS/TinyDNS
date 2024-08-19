@@ -18,7 +18,7 @@ namespace TinyDNS.Records
     public class QuestionRecord : IEquatable<QuestionRecord>
     {
         public List<string> NameLabels { get; set; }
-        public string Name { get { return string.Join(',', NameLabels); } }
+        public string Name { get { return string.Join('.', NameLabels); } }
         public DNSRecordType Type { get; set; }
         public DNSClass Class { get; set; }
         public bool UnicastResponse { get; set; }
