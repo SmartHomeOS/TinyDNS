@@ -86,13 +86,14 @@ namespace TinyDNS
         {
             List<string> labels = new List<string>();
             StringBuilder label = new StringBuilder();
+            ReadOnlySpan<char> domainSpan = domain.AsSpan();
             for (int i = 0; i < domain.Length; i++)
             {
                 if (domain[i] == '\\')
                 {
                     //Escaped char follows
                     if (char.IsAsciiHexDigit(domain[++i]))
-                        label.Append((char)int.Parse(domain.AsSpan().Slice(i++, 2), NumberStyles.HexNumber)); //2 digit hex code
+                        label.Append((char)int.Parse(domainSpan.Slice(i++, 2), NumberStyles.HexNumber)); //2 digit hex code
                     else
                         label.Append(domain[i]); //single character
                 }

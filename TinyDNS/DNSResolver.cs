@@ -10,6 +10,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
@@ -70,6 +71,18 @@ namespace TinyDNS
             globalNameservers.Clear();
             var nics = NetworkInterface.GetAllNetworkInterfaces();
             IPAddress? gateway = null;
+
+            //Gateway DNS servers first
+            foreach (var nic in nics)
+            {
+                if (nic.OperationalStatus == OperationalStatus.Up && !nic.IsReceiveOnly && (nic.GetIPProperties().GatewayAddresses.Count > 0) && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback && nic.NetworkInterfaceType != NetworkInterfaceType.Unknown)
+                {
+                    foreach (IPAddress ns in nic.GetIPProperties().DnsAddresses)
+                        globalNameservers.Add(ns);
+                    gateway ??= nic.GetIPProperties().GatewayAddresses.FirstOrDefault()?.Address;
+                }
+            }
+            //Then fallback to all DNS servers
             foreach (var nic in nics)
             {
                 if (nic.OperationalStatus == OperationalStatus.Up && !nic.IsReceiveOnly && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
@@ -79,6 +92,7 @@ namespace TinyDNS
                     gateway ??= nic.GetIPProperties().GatewayAddresses.FirstOrDefault()?.Address;
                 }
             }
+
             if (gateway != null)
                 globalNameservers.Add(gateway); //Always fall back to the gateway
         }
@@ -209,7 +223,7 @@ namespace TinyDNS
                 return null;
 
             //Check for cache hits
-            ResourceRecord[]? cacheHits = cache.Search(question);
+            ResourceRecord[] cacheHits = cache.Search(question);
             if (cacheHits != null && cacheHits.Length > 0)
             {
                 Message msg = new Message();
@@ -224,131 +238,138 @@ namespace TinyDNS
             try
             {
                 socket = new Socket(SocketType.Dgram, ProtocolType.Udp);
-                Memory<byte> buffer = new byte[512];
-                Message query = new Message();
-                query.Questions = [question];
-
-                foreach (IPAddress nsIP in nameservers)
+                byte[] buffer = ArrayPool<byte>.Shared.Rent(512);
+                try
                 {
-                    //Prevent leaking local domains into the global DNS space
-                    if (privateQuery && !IsPrivate(nsIP))
-                        continue;
+                    Message query = new Message();
+                    query.Questions = [question];
 
-                    int bytes;
-                    try
+                    foreach (IPAddress nsIP in nameservers)
                     {
-                        if (resolutionMode == ResolutionMode.InsecureOnly)
-                            bytes = await ResolveUDP(query, buffer, socket, nsIP);
-                        else
-                        {
-                            try
-                            {
-                                bytes = await ResolveHTTPS(query, buffer, nsIP);
-                            }
-                            catch (HttpRequestException)
-                            {
-                                if (resolutionMode == ResolutionMode.SecureOnly)
-                                    continue;
-                                bytes = await ResolveUDP(query, buffer, socket, nsIP);
-                            }
-                            catch (OperationCanceledException)
-                            {
-                                if (resolutionMode == ResolutionMode.SecureOnly)
-                                    continue;
-                                bytes = await ResolveUDP(query, buffer, socket, nsIP);
-                            }
-                        }
-                    }
-                    catch (SocketException) { continue; }
-                    catch (OperationCanceledException) { continue; }
-
-                    try
-                    {
-                        Message response = new Message(buffer.Slice(0, bytes).Span);
-
-                        //For any error try a different nameserver
-                        if (response.ResponseCode != DNSStatus.NoError)
+                        //Prevent leaking local domains into the global DNS space
+                        if (privateQuery && !IsPrivate(nsIP))
                             continue;
 
-                        //Add new info to the cache
-                        cache.Store(response.Answers);
-                        cache.Store(response.Authorities);
-                        cache.Store(response.Additionals);
-
-                        //Check if we have a valid answer
-                        foreach (ResourceRecord answer in response.Answers)
+                        int bytes;
+                        try
                         {
-                            if (answer.Type == question.Type)
-                                return response;
-                        }
-                        foreach (ResourceRecord additional in response.Additionals)
-                        {
-                            if (question.NameLabels.SequenceEqual(additional.Labels, new DomainEqualityComparer()) && additional.Type == question.Type)
-                                return response;
-                        }
-
-                        //Check if we have a cname redirect
-                        foreach (ResourceRecord answer in response.Answers)
-                        {
-                            if (answer is CNameRecord cname)
+                            if (resolutionMode == ResolutionMode.InsecureOnly)
+                                bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                            else
                             {
-                                question.NameLabels = cname.CNameLabels;
-                                return await ResolveQueryInternal(question, nameservers, privateQuery, recursionCount);
-                            }
-                        }
-
-                        //If not, do we need recursive resolution
-                        if (!response.RecursionAvailable && response.Answers.Length == 0 && response.Authorities.Length > 0)
-                        {
-                            HashSet<string> nextNS = new HashSet<string>();
-                            foreach (ResourceRecord authority in response.Authorities)
-                            {
-                                if (authority is NSRecord ns)
-                                    nextNS.Add(ns.NSDomain);
-                            }
-                            if (nextNS.Count > 0)
-                            {
-                                HashSet<IPAddress> nextNSIPs = new HashSet<IPAddress>();
-                                foreach (ResourceRecord additional in response.Additionals)
+                                try
                                 {
-                                    if (nsIP.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
-                                        nextNSIPs.Add(a.Address);
-                                    if (nsIP.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
-                                        nextNSIPs.Add(aaaa.Address);
+                                    bytes = await ResolveHTTPS(query, buffer, nsIP);
                                 }
-
-                                //We have a NS without IP
-                                if (!nextNSIPs.Any())
+                                catch (HttpRequestException)
                                 {
-                                    List<IPAddress> addresses;
-                                    string nextNameserver = nextNS.First();
-                                    cacheHits = cache.Search(new QuestionRecord(nextNameserver, (nsIP.AddressFamily == AddressFamily.InterNetwork) ? DNSRecordType.A : DNSRecordType.AAAA, false));
+                                    if (resolutionMode == ResolutionMode.SecureOnly)
+                                        continue;
+                                    bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    if (resolutionMode == ResolutionMode.SecureOnly)
+                                        continue;
+                                    bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                                }
+                            }
+                        }
+                        catch (SocketException) { continue; }
+                        catch (OperationCanceledException) { continue; }
 
-                                    if (cacheHits?.Length > 0)
+                        try
+                        {
+                            Message response = new Message(buffer.AsSpan().Slice(0, bytes));
+
+                            //For any error try a different nameserver
+                            if (response.ResponseCode != DNSStatus.NoError)
+                                continue;
+
+                            //Add new info to the cache
+                            cache.Store(response.Answers);
+                            cache.Store(response.Authorities);
+                            cache.Store(response.Additionals);
+
+                            //Check if we have a valid answer
+                            foreach (ResourceRecord answer in response.Answers)
+                            {
+                                if (answer.Type == question.Type)
+                                    return response;
+                            }
+                            foreach (ResourceRecord additional in response.Additionals)
+                            {
+                                if (question.NameLabels.SequenceEqual(additional.Labels, new DomainEqualityComparer()) && additional.Type == question.Type)
+                                    return response;
+                            }
+
+                            //Check if we have a cname redirect
+                            foreach (ResourceRecord answer in response.Answers)
+                            {
+                                if (answer is CNameRecord cname)
+                                {
+                                    question.NameLabels = cname.CNameLabels;
+                                    return await ResolveQueryInternal(question, nameservers, privateQuery, recursionCount);
+                                }
+                            }
+
+                            //If not, do we need recursive resolution
+                            if (!response.RecursionAvailable && response.Answers.Length == 0 && response.Authorities.Length > 0)
+                            {
+                                HashSet<string> nextNS = new HashSet<string>();
+                                foreach (ResourceRecord authority in response.Authorities)
+                                {
+                                    if (authority is NSRecord ns)
+                                        nextNS.Add(ns.NSDomain);
+                                }
+                                if (nextNS.Count > 0)
+                                {
+                                    HashSet<IPAddress> nextNSIPs = new HashSet<IPAddress>();
+                                    foreach (ResourceRecord additional in response.Additionals)
                                     {
-                                        addresses = new List<IPAddress>();
-                                        foreach (ResourceRecord r in cacheHits)
-                                        {
-                                            if (r is ARecord a)
-                                                addresses.Add(a.Address);
-                                            else if (r is AAAARecord aaaa)
-                                                addresses.Add(aaaa.Address);
-                                        }
+                                        if (nsIP.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
+                                            nextNSIPs.Add(a.Address);
+                                        if (nsIP.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
+                                            nextNSIPs.Add(aaaa.Address);
                                     }
-                                    else if (nsIP.AddressFamily == AddressFamily.InterNetwork)
-                                        addresses = await ResolveHostV4(nextNameserver);
-                                    else
-                                        addresses = await ResolveHostV6(nextNameserver);
-                                    foreach (IPAddress addr in addresses)
-                                        nextNSIPs.Add(addr);
-                                }
 
-                                if (nextNSIPs.Any())
-                                    return await ResolveQueryInternal(question, nextNSIPs, privateQuery, recursionCount);
+                                    //We have a NS without IP
+                                    if (!nextNSIPs.Any())
+                                    {
+                                        List<IPAddress> addresses;
+                                        string nextNameserver = nextNS.First();
+                                        cacheHits = cache.Search(new QuestionRecord(nextNameserver, (nsIP.AddressFamily == AddressFamily.InterNetwork) ? DNSRecordType.A : DNSRecordType.AAAA, false));
+
+                                        if (cacheHits?.Length > 0)
+                                        {
+                                            addresses = new List<IPAddress>();
+                                            foreach (ResourceRecord r in cacheHits)
+                                            {
+                                                if (r is ARecord a)
+                                                    addresses.Add(a.Address);
+                                                else if (r is AAAARecord aaaa)
+                                                    addresses.Add(aaaa.Address);
+                                            }
+                                        }
+                                        else if (nsIP.AddressFamily == AddressFamily.InterNetwork)
+                                            addresses = await ResolveHostV4(nextNameserver);
+                                        else
+                                            addresses = await ResolveHostV6(nextNameserver);
+                                        foreach (IPAddress addr in addresses)
+                                            nextNSIPs.Add(addr);
+                                    }
+
+                                    if (nextNSIPs.Any())
+                                        return await ResolveQueryInternal(question, nextNSIPs, privateQuery, recursionCount);
+                                }
                             }
                         }
+                        catch (InvalidDataException) { continue; } //Try the next NS
                     }
-                    catch (InvalidDataException) { continue; } //Try the next NS
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
                 }
             }
             finally

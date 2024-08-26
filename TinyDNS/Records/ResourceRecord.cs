@@ -39,45 +39,32 @@ namespace TinyDNS.Records
         public static ResourceRecord Parse(Span<byte> buffer, ref int pos)
         {
             ResourceRecordHeader header = new ResourceRecordHeader(buffer, ref pos);
-            ResourceRecord record;
             switch (header.Type)
             {
                 case DNSRecordType.A:
-                    record = new ARecord(header, buffer, ref pos);
-                    break;
+                    return new ARecord(header, buffer, ref pos);
                 case DNSRecordType.PTR:
-                    record = new PtrRecord(header, buffer, ref pos);
-                    break;
+                    return new PtrRecord(header, buffer, ref pos);
                 case DNSRecordType.AAAA:
-                    record = new AAAARecord(header, buffer, ref pos);
-                    break;
+                    return new AAAARecord(header, buffer, ref pos);
                 case DNSRecordType.SRV:
-                    record = new SRVRecord(header, buffer, ref pos);
-                    break;
+                    return new SRVRecord(header, buffer, ref pos);
                 case DNSRecordType.TXT:
-                    record = new TxtRecord(header, buffer, ref pos);
-                    break;
+                    return new TxtRecord(header, buffer, ref pos);
                 case DNSRecordType.CNAME:
-                    record = new CNameRecord(header, buffer, ref pos);
-                    break;
+                    return new CNameRecord(header, buffer, ref pos);
                 case DNSRecordType.DNAME:
-                    record = new DNameRecord(header, buffer, ref pos);
-                    break;
+                    return new DNameRecord(header, buffer, ref pos);
                 case DNSRecordType.NS:
-                    record = new NSRecord(header, buffer, ref pos);
-                    break;
+                    return new NSRecord(header, buffer, ref pos);
                 case DNSRecordType.SOA:
-                    record = new SOARecord(header, buffer, ref pos);
-                    break;
+                    return new SOARecord(header, buffer, ref pos);
                 case DNSRecordType.HTTPS:
                 case DNSRecordType.SVCB:
-                    record = new SvcbRecord(header, buffer, ref pos);
-                    break;
+                    return new SvcbRecord(header, buffer, ref pos);
                 default:
-                    record = new UnsupportedRecord(header, buffer, ref pos);
-                    break;
+                    return new UnsupportedRecord(header, buffer, ref pos);
             }
-            return record;
         }
 
         public virtual void Write(Span<byte> buffer, ref int pos)
