@@ -44,9 +44,15 @@ namespace TinyDNS.Records
             Class = (DNSClass)((ushort)Class & 0x7FFF);
         }
 
-        public void Write(Span<byte> buffer, ref int pos)
+        public void Write(Span<byte> buffer, ref int pos, string suffix)
         {
-            DomainParser.Write(NameLabels, buffer, ref pos);
+            List<string> domain = NameLabels;
+            if (!string.IsNullOrWhiteSpace(suffix) && domain.LastIndexOf(suffix) != domain.Count - 1)
+            {
+                domain = NameLabels.ToList();
+                domain.Add(suffix);
+            }
+            DomainParser.Write(domain, buffer, ref pos);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), (ushort)Type);
             pos += 2;
             ushort ClassVal = (ushort)Class;

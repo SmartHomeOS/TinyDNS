@@ -7,44 +7,44 @@ namespace TinyDNS
 {
     public static class DNSSources
     {
-        public static List<IPAddress> RootNameservers
+        public static List<Nameserver> RootNameservers
         {
             get
             {
-                List<IPAddress> addresses = new List<IPAddress>();
+                List<Nameserver> addresses = new List<Nameserver>();
                 string rootHints = Encoding.UTF8.GetString(Resources.named);
                 List<ResourceRecord> recordSet = GetResourceRecords(rootHints);
                 foreach (ResourceRecord record in recordSet)
                 {
                     if (record is ARecord a)
-                        addresses.Add(a.Address);
+                        addresses.Add(new Nameserver(a.Address, false));
                     else if (record is AAAARecord aaaa)
-                        addresses.Add(aaaa.Address);
+                        addresses.Add(new Nameserver(aaaa.Address, false));
                 }
                 return addresses;
             }
         }
 
-        public static List<IPAddress> CloudflareDNSAddresses
+        public static List<Nameserver> CloudflareDNS
         {
             get
             {
                 return
                 [
-                    new IPAddress(new byte[]{1, 1, 1, 1}),
-                new IPAddress(new byte[]{1, 0, 0, 1})
+                    new Nameserver(new IPAddress(new byte[]{1, 1, 1, 1}), true),
+                    new Nameserver(new IPAddress(new byte[]{1, 0, 0, 1}), true)
                 ];
             }
         }
 
-        public static List<IPAddress> GoogleDNSAddresses
+        public static List<Nameserver> GoogleDNS
         {
             get
             {
                 return
                 [
-                    new IPAddress(new byte[]{8, 8, 8, 8}),
-                new IPAddress(new byte[]{8, 8, 4, 4})
+                    new Nameserver(new IPAddress(new byte[]{8, 8, 8, 8}), true),
+                    new Nameserver(new IPAddress(new byte[]{8, 8, 4, 4}), true)
                 ];
             }
         }

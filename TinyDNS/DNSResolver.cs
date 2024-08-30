@@ -24,7 +24,7 @@ namespace TinyDNS
     public sealed class DNSResolver
     {
         public const int PORT = 53;
-        private readonly HashSet<IPAddress> globalNameservers = [];
+        private readonly HashSet<Nameserver> globalNameservers = [];
         private ResolverCache cache = new ResolverCache();
         private ResolutionMode resolutionMode;
         /// <summary>
@@ -42,17 +42,17 @@ namespace TinyDNS
         /// </summary>
         /// <param name="nameservers">the nameservers to query</param>
         /// <param name="mode">Which strategy to use to resolve queries</param>
-        public DNSResolver(List<IPAddress> nameservers, ResolutionMode mode = ResolutionMode.InsecureOnly)
+        public DNSResolver(List<Nameserver> nameservers, ResolutionMode mode = ResolutionMode.InsecureOnly)
         {
             this.resolutionMode = mode;
-            foreach (IPAddress nameserver in nameservers)
+            foreach (Nameserver nameserver in nameservers)
                 this.globalNameservers.Add(nameserver);
         }
 
         /// <summary>
         /// The nameservers to query
         /// </summary>
-        public List<IPAddress> NameServers
+        public List<Nameserver> NameServers
         { 
             get
             { 
@@ -61,7 +61,7 @@ namespace TinyDNS
             set
             {
                 globalNameservers.Clear();
-                foreach (IPAddress nameserver in value)
+                foreach (Nameserver nameserver in value)
                     globalNameservers.Add(nameserver);
             }
         }
@@ -71,6 +71,7 @@ namespace TinyDNS
             globalNameservers.Clear();
             var nics = NetworkInterface.GetAllNetworkInterfaces();
             IPAddress? gateway = null;
+            string dnsSuffix = string.Empty;
 
             //Gateway DNS servers first
             foreach (var nic in nics)
@@ -78,7 +79,9 @@ namespace TinyDNS
                 if (nic.OperationalStatus == OperationalStatus.Up && !nic.IsReceiveOnly && (nic.GetIPProperties().GatewayAddresses.Count > 0) && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback && nic.NetworkInterfaceType != NetworkInterfaceType.Unknown)
                 {
                     foreach (IPAddress ns in nic.GetIPProperties().DnsAddresses)
-                        globalNameservers.Add(ns);
+                        globalNameservers.Add(new Nameserver(ns, nic.GetIPProperties().DnsSuffix));
+                    if (gateway == null)
+                        dnsSuffix = nic.GetIPProperties().DnsSuffix;
                     gateway ??= nic.GetIPProperties().GatewayAddresses.FirstOrDefault()?.Address;
                 }
             }
@@ -88,13 +91,15 @@ namespace TinyDNS
                 if (nic.OperationalStatus == OperationalStatus.Up && !nic.IsReceiveOnly && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 {
                     foreach (IPAddress ns in nic.GetIPProperties().DnsAddresses)
-                        globalNameservers.Add(ns);
+                        globalNameservers.Add(new Nameserver(ns, nic.GetIPProperties().DnsSuffix));
+                    if (gateway == null)
+                        dnsSuffix = nic.GetIPProperties().DnsSuffix;
                     gateway ??= nic.GetIPProperties().GatewayAddresses.FirstOrDefault()?.Address;
                 }
             }
 
             if (gateway != null)
-                globalNameservers.Add(gateway); //Always fall back to the gateway
+                globalNameservers.Add(new Nameserver(gateway, dnsSuffix)); //Always fall back to the gateway
         }
 
         /// <summary>
@@ -215,7 +220,7 @@ namespace TinyDNS
             return await ResolveQueryInternal(question, globalNameservers, privateQuery);
         }
 
-        private async Task<Message?> ResolveQueryInternal(QuestionRecord question, HashSet<IPAddress> nameservers, bool privateQuery, int recursionCount = 0)
+        private async Task<Message?> ResolveQueryInternal(QuestionRecord question, HashSet<Nameserver> nameservers, bool privateQuery, int recursionCount = 0)
         {
             //Check for excessive recursion
             recursionCount++;
@@ -244,34 +249,36 @@ namespace TinyDNS
                     Message query = new Message();
                     query.Questions = [question];
 
-                    foreach (IPAddress nsIP in nameservers)
+                    foreach (Nameserver ns in nameservers)
                     {
                         //Prevent leaking local domains into the global DNS space
-                        if (privateQuery && !IsPrivate(nsIP))
+                        if (privateQuery && !IsPrivate(ns.Address))
                             continue;
 
                         int bytes;
                         try
                         {
-                            if (resolutionMode == ResolutionMode.InsecureOnly)
-                                bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                            if (resolutionMode == ResolutionMode.InsecureOnly || (resolutionMode == ResolutionMode.SecureWithFallback && ns.SupportsDoH == false))
+                                bytes = await ResolveUDP(query, buffer, socket, ns);
                             else
                             {
                                 try
                                 {
-                                    bytes = await ResolveHTTPS(query, buffer, nsIP);
+                                    if (ns.SupportsDoH == false)
+                                        continue;
+                                    bytes = await ResolveHTTPS(query, buffer, ns);
                                 }
                                 catch (HttpRequestException)
                                 {
                                     if (resolutionMode == ResolutionMode.SecureOnly)
                                         continue;
-                                    bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                                    bytes = await ResolveUDP(query, buffer, socket, ns);
                                 }
                                 catch (OperationCanceledException)
                                 {
                                     if (resolutionMode == ResolutionMode.SecureOnly)
                                         continue;
-                                    bytes = await ResolveUDP(query, buffer, socket, nsIP);
+                                    bytes = await ResolveUDP(query, buffer, socket, ns);
                                 }
                             }
                         }
@@ -319,18 +326,18 @@ namespace TinyDNS
                                 HashSet<string> nextNS = new HashSet<string>();
                                 foreach (ResourceRecord authority in response.Authorities)
                                 {
-                                    if (authority is NSRecord ns)
-                                        nextNS.Add(ns.NSDomain);
+                                    if (authority is NSRecord nsr)
+                                        nextNS.Add(nsr.NSDomain);
                                 }
                                 if (nextNS.Count > 0)
                                 {
-                                    HashSet<IPAddress> nextNSIPs = new HashSet<IPAddress>();
+                                    HashSet<Nameserver> nextNSIPs = new HashSet<Nameserver>();
                                     foreach (ResourceRecord additional in response.Additionals)
                                     {
-                                        if (nsIP.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
-                                            nextNSIPs.Add(a.Address);
-                                        if (nsIP.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
-                                            nextNSIPs.Add(aaaa.Address);
+                                        if (ns.Address.AddressFamily == AddressFamily.InterNetwork && additional is ARecord a && nextNS.Contains(a.Name))
+                                            nextNSIPs.Add(new Nameserver(a.Address));
+                                        if (ns.Address.AddressFamily == AddressFamily.InterNetworkV6 && additional is AAAARecord aaaa && nextNS.Contains(aaaa.Name))
+                                            nextNSIPs.Add(new Nameserver(aaaa.Address));
                                     }
 
                                     //We have a NS without IP
@@ -338,7 +345,7 @@ namespace TinyDNS
                                     {
                                         List<IPAddress> addresses;
                                         string nextNameserver = nextNS.First();
-                                        cacheHits = cache.Search(new QuestionRecord(nextNameserver, (nsIP.AddressFamily == AddressFamily.InterNetwork) ? DNSRecordType.A : DNSRecordType.AAAA, false));
+                                        cacheHits = cache.Search(new QuestionRecord(nextNameserver, (ns.Address.AddressFamily == AddressFamily.InterNetwork) ? DNSRecordType.A : DNSRecordType.AAAA, false));
 
                                         if (cacheHits?.Length > 0)
                                         {
@@ -351,12 +358,12 @@ namespace TinyDNS
                                                     addresses.Add(aaaa.Address);
                                             }
                                         }
-                                        else if (nsIP.AddressFamily == AddressFamily.InterNetwork)
+                                        else if (ns.Address.AddressFamily == AddressFamily.InterNetwork)
                                             addresses = await ResolveHostV4(nextNameserver);
                                         else
                                             addresses = await ResolveHostV6(nextNameserver);
                                         foreach (IPAddress addr in addresses)
-                                            nextNSIPs.Add(addr);
+                                            nextNSIPs.Add(new Nameserver(addr));
                                     }
 
                                     if (nextNSIPs.Any())
@@ -394,23 +401,23 @@ namespace TinyDNS
             return false;
         }
 
-        private async Task<int> ResolveUDP(Message query, Memory<byte> buffer, Socket socket, IPAddress nameserverIP)
+        private async Task<int> ResolveUDP(Message query, Memory<byte> buffer, Socket socket, Nameserver nameserver)
         {
-            int len = query.ToBytes(buffer.Span);
-            await socket.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(nameserverIP, PORT));
+            int len = query.ToBytes(buffer.Span, nameserver.DNSSuffix);
+            await socket.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(nameserver.Address, PORT));
             return await socket.ReceiveAsync(buffer, SocketFlags.None, new CancellationTokenSource(3000).Token);
         }
 
-        private async Task<int> ResolveHTTPS(Message query, Memory<byte> buffer, IPAddress nameserverIP)
+        private async Task<int> ResolveHTTPS(Message query, Memory<byte> buffer, Nameserver nameserver)
         {
             query.TransactionID = 0;
-            int len = query.ToBytes(buffer.Span);
+            int len = query.ToBytes(buffer.Span, nameserver.DNSSuffix);
             using (HttpClient httpClient = new HttpClient())
             {
                 ByteArrayContent content = new ByteArrayContent(buffer.Slice(0, len).ToArray());
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/dns-message");
-                string hostname = nameserverIP.ToString();
-                if (nameserverIP.AddressFamily == AddressFamily.InterNetworkV6)
+                string hostname = nameserver.Address.ToString();
+                if (nameserver.Address.AddressFamily == AddressFamily.InterNetworkV6)
                     hostname = String.Concat("[", hostname, "]");
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, $"https://{hostname}/dns-query");
                 request.Content = content;

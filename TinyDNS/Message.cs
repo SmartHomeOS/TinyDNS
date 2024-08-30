@@ -78,7 +78,7 @@ namespace TinyDNS
         public ResourceRecord[] Answers { get; set; } = [];
         public ResourceRecord[] Authorities { get; set; } = [];
         public ResourceRecord[] Additionals { get; set; } = [];
-        public int ToBytes(Span<byte> buffer)
+        public int ToBytes(Span<byte> buffer, string suffix)
         {
             BinaryPrimitives.WriteUInt16BigEndian(buffer, TransactionID);
             byte op = (byte)(((byte)Operation & 0xF) << 3);
@@ -104,7 +104,7 @@ namespace TinyDNS
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(10, 2), (ushort)Additionals.Length);
             int pos = 12;
             foreach (QuestionRecord question in Questions)
-                question.Write(buffer, ref pos);
+                question.Write(buffer, ref pos, suffix);
             foreach (ResourceRecord answer in Answers)
                 answer.Write(buffer, ref pos);
             foreach (ResourceRecord authority in Authorities)

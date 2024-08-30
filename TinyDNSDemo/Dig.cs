@@ -21,10 +21,12 @@ namespace TinyDNSDemo
     internal class Dig
     {
         static bool running = true;
-        static DNSResolver resolver = new DNSResolver(DNSSources.CloudflareDNSAddresses, ResolutionMode.SecureWithFallback);
+        static DNSResolver resolver = new DNSResolver(DNSSources.CloudflareDNS, ResolutionMode.SecureWithFallback);
+        static MDNS mdns = new MDNS();
 
         public static async Task Run()
         {
+            await mdns.Start();
             try
             {
                 PrintHelp();
@@ -122,8 +124,6 @@ namespace TinyDNSDemo
             {
                 if (multicast)
                 {
-                    MDNS mdns = new MDNS();
-                    await mdns.Start();
                     List<Message> results;
                     if (inverse)
                     {
@@ -141,7 +141,7 @@ namespace TinyDNSDemo
                             Console.Error.WriteLine("Invalid Domain");
                             return;
                         }
-                        results = await mdns.ResolveQuery(domain, recordType);
+                        results = await mdns.ResolveQuery(domain, false, recordType);
                     }
                     if (results.Count > 0)
                     {
@@ -161,7 +161,7 @@ namespace TinyDNSDemo
                             Console.Error.WriteLine("Invalid Address");
                             return;
                         }
-                        resolver.NameServers = DNSSources.CloudflareDNSAddresses;
+                        resolver.NameServers = DNSSources.CloudflareDNS;
                         if (nameserver != null)
                         {
                             if (!IPAddress.TryParse(nameserver, out IPAddress? ns))
@@ -172,10 +172,10 @@ namespace TinyDNSDemo
                                     Console.Error.WriteLine($"Invalid Nameserver: {nameserver}");
                                     return;
                                 }
-                                resolver.NameServers = ips;
+                                resolver.NameServers = Wrap(ips);
                             }
                             else
-                                resolver.NameServers = [ns];
+                                resolver.NameServers = [new Nameserver(ns)];
                         }
                         var result = await resolver.ResolveIPRecord(address);
                         if (result == null)
@@ -191,7 +191,7 @@ namespace TinyDNSDemo
                             return;
                         }
 
-                        resolver.NameServers = DNSSources.CloudflareDNSAddresses;
+                        resolver.NameServers = DNSSources.CloudflareDNS;
                         if (nameserver != null)
                         {
                             if (!IPAddress.TryParse(nameserver, out IPAddress? ns))
@@ -202,10 +202,10 @@ namespace TinyDNSDemo
                                     Console.Error.WriteLine($"Invalid Nameserver: {nameserver}");
                                     return;
                                 }
-                                resolver.NameServers = ips;
+                                resolver.NameServers = Wrap(ips);
                             }
                             else
-                                resolver.NameServers = [ns];
+                                resolver.NameServers = [new Nameserver(ns)];
                         }
                         QuestionRecord qr = new QuestionRecord(domain, recordType, false);
                         var response = await resolver.ResolveQuery(qr);
@@ -221,6 +221,14 @@ namespace TinyDNSDemo
                 Console.Error.WriteLine(e);
                 running = false;
             }
+        }
+
+        private static List<Nameserver> Wrap(List<IPAddress> ips)
+        {
+            List<Nameserver> nameservers = new List<Nameserver>();
+            foreach (IPAddress ip in ips)
+                nameservers.Add(new Nameserver(ip));
+            return nameservers;
         }
 
         private static void PrintHelp()
