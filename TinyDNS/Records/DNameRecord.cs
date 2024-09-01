@@ -17,7 +17,7 @@ namespace TinyDNS.Records
 {
     public class DNameRecord : ResourceRecord
     {
-        public List<string> DNameLabels { get; }
+        public string[] DNameLabels { get; }
         public string DName { get { return string.Join('.', DNameLabels); } }
 
         internal DNameRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
@@ -26,7 +26,7 @@ namespace TinyDNS.Records
             DNameLabels = DomainParser.Read(buffer, ref pos);
         }
 
-        public DNameRecord(string dname, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.DNAME, @class, ttl)
+        public DNameRecord(string dname, string[] labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.DNAME, @class, ttl)
         {
             DNameLabels = DomainParser.Parse(dname);
         }

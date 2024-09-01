@@ -17,8 +17,8 @@ namespace TinyDNS.Records
 {
     public class SOARecord : ResourceRecord
     {
-        public List<string> MNameLabels { get; }
-        public List<string> RNameLabels { get; }
+        public string[] MNameLabels { get; }
+        public string[] RNameLabels { get; }
         public uint Serial { get; set; }
         public TimeSpan Refresh { get; set; }
         public TimeSpan Retry { get; set; }
@@ -44,7 +44,7 @@ namespace TinyDNS.Records
             pos += 4;
         }
 
-        public SOARecord(string mname, string rname, TimeSpan minimum, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.SOA, @class, ttl)
+        public SOARecord(string mname, string rname, TimeSpan minimum, string[] labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.SOA, @class, ttl)
         {
             MNameLabels = DomainParser.Parse(mname);
             RNameLabels = DomainParser.Parse(rname);

@@ -19,7 +19,7 @@ namespace TinyDNS.Records
     {
         public DNSClass Class { get; set; }
         public DNSRecordType Type { get; set; }
-        public List<string> Labels { get; set; }
+        public string[] Labels { get; set; }
         public DateTime Expires { get; set; }
         public DateTime Created { get; set; }
         public bool CacheFlush { get; set; }
@@ -48,7 +48,7 @@ namespace TinyDNS.Records
             Expires = Created + TimeSpan.FromSeconds(ttl);
         }
 
-        public ResourceRecordHeader(List<string> labels, DNSRecordType type, DNSClass @class, uint ttl)
+        public ResourceRecordHeader(string[] labels, DNSRecordType type, DNSClass @class, uint ttl)
         {
             this.Labels = labels;
             this.Type = type;

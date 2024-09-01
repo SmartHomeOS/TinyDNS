@@ -211,7 +211,7 @@ namespace TinyDNS
         /// <returns></returns>
         public async Task<Message?> ResolveQuery(QuestionRecord question)
         {
-            bool privateQuery = (question.NameLabels.Last() == "local");
+            bool privateQuery = (question.NameLabels[question.NameLabels.Length - 1] == "local" || question.NameLabels.Length == 1);
             return await ResolveQueryInternal(question, globalNameservers, privateQuery);
         }
 

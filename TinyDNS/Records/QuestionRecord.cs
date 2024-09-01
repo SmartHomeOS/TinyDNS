@@ -17,7 +17,7 @@ namespace TinyDNS.Records
 {
     public class QuestionRecord : IEquatable<QuestionRecord>
     {
-        public List<string> NameLabels { get; set; }
+        public string[] NameLabels { get; set; }
         public string Name { get { return string.Join('.', NameLabels); } }
         public DNSRecordType Type { get; set; }
         public DNSClass Class { get; set; }
@@ -25,7 +25,7 @@ namespace TinyDNS.Records
 
         public QuestionRecord(string domain, DNSRecordType recordType, bool unicastResponse) : this(DomainParser.Parse(domain), recordType, unicastResponse) {  }
 
-        public QuestionRecord(List<string> domain, DNSRecordType recordType, bool unicastResponse)
+        public QuestionRecord(string[] domain, DNSRecordType recordType, bool unicastResponse)
         { 
             NameLabels = domain;
             Type = recordType;
@@ -46,11 +46,12 @@ namespace TinyDNS.Records
 
         public void Write(Span<byte> buffer, ref int pos, string suffix)
         {
-            List<string> domain = NameLabels;
-            if (!string.IsNullOrWhiteSpace(suffix) && domain.LastIndexOf(suffix) != domain.Count - 1)
+            string[] domain = NameLabels;
+            if (!string.IsNullOrWhiteSpace(suffix) && NameLabels.Length == 1)
             {
-                domain = NameLabels.ToList();
-                domain.Add(suffix);
+                List<string> newDomain = NameLabels.ToList();
+                newDomain.Add(suffix);
+                domain = newDomain.ToArray();
             }
             DomainParser.Write(domain, buffer, ref pos);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), (ushort)Type);

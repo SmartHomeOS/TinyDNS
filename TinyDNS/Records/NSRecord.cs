@@ -17,7 +17,7 @@ namespace TinyDNS.Records
 {
     public class NSRecord : ResourceRecord
     {
-        public List<string> NSDomainLabels { get; }
+        public string[] NSDomainLabels { get; }
         public string NSDomain { get { return string.Join('.', NSDomainLabels); } }
 
         internal NSRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
@@ -26,7 +26,7 @@ namespace TinyDNS.Records
             NSDomainLabels = DomainParser.Read(buffer, ref pos);
         }
 
-        public NSRecord(string ns, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.NS, @class, ttl)
+        public NSRecord(string ns, string[] labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.NS, @class, ttl)
         {
             NSDomainLabels = DomainParser.Parse(ns);
         }

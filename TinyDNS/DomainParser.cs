@@ -20,7 +20,7 @@ namespace TinyDNS
     {
         private const byte ROOT = 0x0;
 
-        public static List<string> Read(Span<byte> bytes, ref int position, int iteration = 0, bool partialDomain = false)
+        public static string[] Read(Span<byte> bytes, ref int position, int iteration = 0, bool partialDomain = false)
         {
             iteration++;
             if (iteration >= 32)
@@ -50,12 +50,12 @@ namespace TinyDNS
                     if ((position + 1) >  bytes.Length)
                     {
                         if (partialDomain)
-                            return labels;
+                            return labels.ToArray();
                         throw new InvalidDataException("Domain was not fully qualified");
                     }
                     length = bytes[position++];
                 }
-                return labels;
+                return labels.ToArray();
             }
             catch (Exception e) when (e is IndexOutOfRangeException || e is ArgumentOutOfRangeException)
             {
@@ -63,7 +63,7 @@ namespace TinyDNS
             }
         }
 
-        public static void Write(List<string> labels, Span<byte> buffer, ref int pos)
+        public static void Write(string[] labels, Span<byte> buffer, ref int pos)
         {
             foreach (string label in labels)
             {
@@ -82,7 +82,7 @@ namespace TinyDNS
             buffer[pos++] = ROOT;
         }
 
-        public static List<string> Parse(string domain)
+        public static string[] Parse(string domain)
         {
             List<string> labels = new List<string>();
             StringBuilder label = new StringBuilder();
@@ -107,37 +107,37 @@ namespace TinyDNS
             }
             if (label.Length > 0)
                 labels.Add(label.ToString());
-            return labels;
+            return labels.ToArray();
         }
 
-        internal static List<string> FromIP(IPAddress address)
+        internal static string[] FromIP(IPAddress address)
         {
             return FromIP(address.GetAddressBytes());
         }
 
-        internal static List<string> FromIP(byte[] address)
+        internal static string[] FromIP(byte[] address)
         {
-            List<string> host;
+            string[] host;
             if (address.Length == 4)
             {
-                host = new List<string>(6);
-                for (int i = address.Length - 1; i >= 0; i--)
-                    host.Add(address[i].ToString());
+                host = new string[6];
+                for (int i = 0; i < address.Length; i++)
+                    host[3 - i] = address[i].ToString();
 
-                host.Add("in-addr");
-                host.Add("arpa");
+                host[4] = "in-addr";
+                host[5] = "arpa";
             }
             else
             {
-                host = new List<string>(34);
-                for (int i = address.Length - 1; i >= 0; i--)
+                host = new string[34];
+                for (int i = 0; i < address.Length; i++)
                 {
                     string hex = address[i].ToString("x2");
-                    host.Add(hex.Substring(1, 1));
-                    host.Add(hex.Substring(0, 1));
+                    host[16 - (2*i)] = hex.Substring(1, 1);
+                    host[16 - ((2*i)+1)] = hex.Substring(0, 1);
                 }
-                host.Add("IP6");
-                host.Add("ARPA");
+                host[32] ="IP6";
+                host[33] = "ARPA";
             }
             return host;
         }

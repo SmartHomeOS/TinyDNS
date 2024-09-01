@@ -16,35 +16,21 @@ using TinyDNS.Enums;
 
 namespace TinyDNS.Records
 {
-    public class AAAARecord : ResourceRecord
+    public class AAAARecord : IPRecord
     {
-        public IPAddress Address { get; protected set; }
+        internal AAAARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos) { }
 
-        internal AAAARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
-        {
-            ushort len = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
-            pos += 2;
-            Address = new IPAddress(buffer.Slice(pos, len));
-            pos += len;
-        }
+        public AAAARecord(IPAddress address, string[] labels, DNSClass @class, uint ttl) : base(address, labels, DNSRecordType.AAAA, @class, ttl) { }
 
-        public AAAARecord(IPAddress address, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.AAAA, @class, ttl)
-        {
-            Address = address;
-        }
-
-        public AAAARecord(ResourceRecordHeader header, string rdata) : base(header)
-        {
-            Address = IPAddress.Parse(rdata);
-        }
+        public AAAARecord(ResourceRecordHeader header, string rdata) : base(header, rdata) { }
 
         public override void Write(Span<byte> buffer, ref int pos)
         {
             base.Write(buffer, ref pos);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), 16);
             pos += 2;
-            Address.TryWriteBytes(buffer.Slice(pos, 16), out _);
-            pos += 16;
+            Address.TryWriteBytes(buffer.Slice(pos, 16), out int len);
+            pos += len;
         }
 
         public override bool Equals(ResourceRecord? other)

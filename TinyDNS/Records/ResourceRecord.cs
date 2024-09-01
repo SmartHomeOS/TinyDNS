@@ -18,7 +18,7 @@ namespace TinyDNS.Records
     {
         public DNSClass Class { get { return header.Class; } set { header.Class = value; } }
         public DNSRecordType Type { get { return header.Type; } set { header.Type = value; } }
-        public List<string> Labels { get { return header.Labels; } set { header.Labels = value; } }
+        public string[] Labels { get { return header.Labels; } set { header.Labels = value; } }
         public DateTime Created { get { return header.Created; } set { header.Created = value; } }
         public DateTime Expires { get { return header.Expires; } set { header.Expires = value; } }
         public bool CacheFlush { get { return header.CacheFlush; } set { header.CacheFlush = value; } }
@@ -31,7 +31,7 @@ namespace TinyDNS.Records
             this.header = header;
         }
 
-        public ResourceRecord(List<string> labels, DNSRecordType type, DNSClass @class, uint ttl)
+        public ResourceRecord(string[] labels, DNSRecordType type, DNSClass @class, uint ttl)
         {
             this.header = new ResourceRecordHeader(labels, type, @class, ttl);
         }

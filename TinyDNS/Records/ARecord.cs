@@ -16,27 +16,13 @@ using TinyDNS.Enums;
 
 namespace TinyDNS.Records
 {
-    public class ARecord : ResourceRecord
+    public class ARecord : IPRecord
     {
-        public IPAddress Address { get; protected set; }
+        internal ARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header, buffer, ref pos) { }
 
-        internal ARecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
-        {
-            ushort len = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(pos, 2));
-            pos += 2;
-            Address = new IPAddress(buffer.Slice(pos, len));
-            pos += len;
-        }
+        public ARecord(IPAddress address, string[] labels, DNSClass @class, uint ttl) : base(address, labels, DNSRecordType.A, @class, ttl) { }
 
-        public ARecord(IPAddress address, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.A, @class, ttl)
-        {
-            Address = address;
-        }
-
-        public ARecord(ResourceRecordHeader header, string rdata) : base(header)
-        {
-            Address = IPAddress.Parse(rdata);
-        }
+        public ARecord(ResourceRecordHeader header, string rdata) : base(header, rdata) { }
 
         public override void Write(Span<byte> buffer, ref int pos)
         {

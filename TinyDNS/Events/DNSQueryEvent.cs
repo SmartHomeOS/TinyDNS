@@ -12,29 +12,17 @@
 
 using System.Net;
 
-namespace TinyDNS.Cache
+namespace TinyDNS.Events
 {
-    internal struct RecordEntry : IEquatable<RecordEntry>
+    public class DNSQueryEvent : EventArgs
     {
-        public DateTime Time;
-        public Message message;
-        public IPAddress Address;
-
-        public bool Equals(RecordEntry other)
+        public DNSQueryEvent(IPAddress source, Message message)
         {
-            return message.Equals(other.message);
+            Source = source;
+            Message = message;
         }
 
-        public override bool Equals(object? obj)
-        {
-            if (obj is RecordEntry entry)
-                return Equals(entry);
-            return false;
-        }
-
-        public override int GetHashCode()
-        {
-            return message.GetHashCode();
-        }
+        public IPAddress Source { get; }
+        public Message Message { get; }
     }
 }

@@ -31,6 +31,13 @@ internal class Program
                 await EasyDNS.Run();
             }
             else if (cmd == "3")
+            {
+                Console.Clear();
+                DNSSD browser = new DNSSD();
+                await browser.Run();
+                Console.ReadKey();
+            }
+            else if (cmd == "4")
                 return;
             else
             {
@@ -46,7 +53,8 @@ internal class Program
         Console.WriteLine("Welcome to the TinyDNS Demo");
         Console.WriteLine("Press 1 to launch Tiny DIG");
         Console.WriteLine("Press 2 to launch Easy DNS");
-        Console.WriteLine("Press 3 to exit\n");
+        Console.WriteLine("Press 3 to launch DNS-SD Browser");
+        Console.WriteLine("Press 4 to exit\n");
         Console.Write("Selection: ");
     }
 }

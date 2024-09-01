@@ -1,4 +1,4 @@
-﻿// TinyDNS Copyright (C) 2024
+﻿// TinyDNS Copyright (C) 2024 
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -10,23 +10,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-using System.Net;
-using TinyDNS.Records;
+using TinyDNS.Enums;
 
 namespace TinyDNS.Events
 {
-    public class DNSMessageEvent : EventArgs
+    public class DNSCacheEvent : EventArgs
     {
-        public DNSMessageEvent(Message msg, IPEndPoint endPoint, List<ResourceRecord> updatedRecords, List<ResourceRecord> addedRecords)
+        public DNSCacheEvent(DNSRecordType[] recordTypes, string[] domain)
         {
-            Message = msg;
-            RemoteEndPoint = endPoint;
-            UpdatedRecords = updatedRecords;
-            AddedRecords = addedRecords;
+            RecordTypes = recordTypes;
+            Domain = domain;
         }
-        public Message Message { get; }
-        public IPEndPoint RemoteEndPoint { get; }
-        public List<ResourceRecord> UpdatedRecords { get; }
-        public List<ResourceRecord> AddedRecords { get; }
+        public DNSRecordType[] RecordTypes;
+        public string[] Domain;
     }
 }

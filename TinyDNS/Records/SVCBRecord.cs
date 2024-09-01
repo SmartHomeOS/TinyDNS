@@ -10,9 +10,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-using System;
 using System.Buffers.Binary;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using TinyDNS.Enums;
 
@@ -21,7 +21,7 @@ namespace TinyDNS.Records
     public class SvcbRecord : ResourceRecord
     {
         public int ServicePriority { get; }
-        public List<string> TargetName { get; }
+        public string[] TargetName { get; }
         public Dictionary<string, List<string>> Parameters { get; }
 
         internal SvcbRecord(ResourceRecordHeader header, Span<byte> buffer, ref int pos) : base(header)
@@ -55,18 +55,48 @@ namespace TinyDNS.Records
             Parameters = param;
         }
 
-        public SvcbRecord(Dictionary<string, List<string>> @params, List<string> targetName, ushort priority, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.SVCB, @class, ttl)
+        public SvcbRecord(Dictionary<string, List<string>> @params, string[] targetName, ushort priority, string[] labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.SVCB, @class, ttl)
         {
             Parameters = @params;
             TargetName = targetName;
             ServicePriority = priority;
         }
 
+        public override void Write(Span<byte> buffer, ref int pos)
+        {
+            base.Write(buffer, ref pos);
+            pos += 2;
+            int initialPos = pos;
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), (ushort)ServicePriority);
+            pos += 2;
+            DomainParser.Write(TargetName, buffer, ref pos);
+
+            foreach (var kvp in Parameters)
+            {
+                ushort key = GetKeyIndex(kvp.Key);
+                BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), key);
+                int lenPos = pos + 2;
+                pos += 4;
+                WriteValue(key, kvp.Value, buffer, ref pos);
+                BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(lenPos, 2), (ushort)((pos - lenPos) + 2));
+            }
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(initialPos - 2, 2), (ushort)(pos - initialPos));
+        }
+
         public override bool Equals(ResourceRecord? other)
         {
             if (other is SvcbRecord otherSvcb)
-                return base.Equals(other) && Parameters.Equals(otherSvcb.Parameters);
+                return base.Equals(other) && Parameters.Keys.SequenceEqual(otherSvcb.Parameters.Keys);
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            HashCode hc = GetBaseHash();
+            foreach (var label in Parameters)
+                hc.Add(label.Key);
+            int code = hc.ToHashCode();
+            return code;
         }
 
         private string GetKey(ushort keyIndex)
@@ -96,10 +126,77 @@ namespace TinyDNS.Records
             }
         }
 
-        private List<string> GetValue(ushort key, Span<byte> span)
+        private ushort GetKeyIndex(string key)
+        {
+            switch (key)
+            {
+                case "mandatory":
+                    return 0;
+                case "alpn":
+                    return 1;
+                case "no-default-alpn":
+                    return 2;
+                case "port":
+                    return 3;
+                case "ipv4hint":
+                    return 4;
+                case "ech":
+                    return 5;
+                case "ipv6hint":
+                    return 6;
+                case "dohpath":
+                    return 7;
+                case "ohttp":
+                    return 8;
+                default:
+                    return 255;
+            }
+        }
+
+        private void WriteValue(ushort keyIndex, List<string> value, Span<byte> buffer, ref int pos)
+        {
+            if (value.Count == 0)
+                return;
+            switch (keyIndex)
+            {
+                case 0:
+                    break;
+                case 1:
+                case 2:
+                    foreach (string s in value)
+                    {
+                        buffer[pos++] = (byte)s.Length;
+                        Encoding.UTF8.GetBytes(s, buffer.Slice(pos, s.Length));
+                        pos += s.Length;
+                    }
+                    break;
+                case 3:
+                    ushort port = ushort.Parse(value[0]);
+                    BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(pos, 2), port);
+                    pos += 2;
+                    break;
+                case 4:
+                case 6:
+                    foreach (string s in value)
+                    {
+                        IPAddress ip = IPAddress.Parse(s);
+                        ip.GetAddressBytes().CopyTo(buffer.Slice(pos));
+                        if (ip.AddressFamily == AddressFamily.InterNetwork)
+                            pos += 4;
+                        else
+                            pos += 16;
+                    }
+                    break;
+                default:
+                    pos += Encoding.UTF8.GetBytes(value[0], buffer.Slice(pos));
+                    break;
+            }
+        }
+
+        private List<string> GetValue(ushort keyIndex, Span<byte> span)
         {
             List<string> strings = [];
-            switch (key)
+            switch (keyIndex)
             {
                 case 1:
                 case 2:

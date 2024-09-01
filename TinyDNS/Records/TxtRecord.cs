@@ -44,7 +44,7 @@ namespace TinyDNS.Records
             Strings = strings;
         }
 
-        public TxtRecord(List<string> strings, List<string> labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.TXT, @class, ttl)
+        public TxtRecord(List<string> strings, string[] labels, DNSClass @class, uint ttl) : base(labels, DNSRecordType.TXT, @class, ttl)
         {
             Strings = strings;
         }

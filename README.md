@@ -1,9 +1,9 @@
-﻿# Tiny DNS
+﻿# Tiny DNS Client
 
 [![Build](https://github.com/SmartHomeOS/TinyDNS/actions/workflows/dotnet.yml/badge.svg)](https://github.com/SmartHomeOS/TinyDNS/actions/workflows/dotnet.yml)
 [![Version](https://img.shields.io/nuget/v/TinyDNS.svg)](https://www.nuget.org/packages/TinyDNS)
 
-A small, fast, modern DNS / MDNS client
+A small, fast, modern DNS / MDNS / DNS-SD client
 
 ### Features:
 * Recursive resolution from root hints with no DNS servers configured

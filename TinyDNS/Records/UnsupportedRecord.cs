@@ -32,7 +32,7 @@ namespace TinyDNS.Records
             pos += len;
         }
 
-        public UnsupportedRecord(byte[] data, List<string> labels, DNSRecordType type, DNSClass @class, uint ttl) : base(labels, type, @class, ttl)
+        public UnsupportedRecord(byte[] data, string[] labels, DNSRecordType type, DNSClass @class, uint ttl) : base(labels, type, @class, ttl)
         {
             RData = data;
         }
