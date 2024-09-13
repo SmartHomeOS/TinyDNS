@@ -37,12 +37,17 @@ namespace TinyDNSDemo
             mdns.AnswerReceived += Mdns_AnswerReceived;
             await mdns.Start();
 
+            //Query all services (unicast first since we are new to the network)
             var records = await mdns.QueryService(ALL_SERVICES, DEFAULT_DOMAIN, true);
             await ProcessRecords(records);
 
             await Task.Delay(10000);
-            records = await mdns.QueryService(ALL_SERVICES, DEFAULT_DOMAIN, true);
+
+            //Check for any services we didn't hear about in the last query (known answer suppression is automatic)
+            records = await mdns.QueryService(ALL_SERVICES, DEFAULT_DOMAIN, false);
             await ProcessRecords(records);
+
+            //In long running implementations, scanning should occur every 15-60 mins
         }
 
         private async Task Mdns_AnswerReceived(DNSMessageEvent e)
@@ -59,9 +64,10 @@ namespace TinyDNSDemo
                     string? serviceName;
                     PtrRecord item = (PtrRecord)record;
                     if (!item.Domain.EndsWith(".local"))
-                        return; //NOT DNS-SD
+                        return; //NOT DNS-SD this is regular MDNS
                     if (item.Name.StartsWith(ALL_SERVICES))
                     {
+                        //These records tell us a service exists on the network for 1 or more hosts
                         serviceName = MDNS.GetServiceName(item.DomainLabels);
                         var cachedAnswers = await mdns.QueryService(serviceName!, DEFAULT_DOMAIN);
                         if (serviceName != null)
@@ -73,12 +79,14 @@ namespace TinyDNSDemo
                         serviceName = MDNS.GetServiceName(item.DomainLabels);
                         if (serviceName == ALL_SERVICES)
                             continue;
+                        //These records are instance pointers - they tell us about hosts which have a specific service
                         string? serviceInstance = MDNS.GetInstanceName(item.DomainLabels);
                         
                         if (serviceName != null)
                         {
                             if (UpdateService(serviceName, serviceInstance))
                             {
+                                // Request details on this instance of the service
                                 var lst = await mdns.ResolveServiceInstance(serviceInstance!, serviceName!, DEFAULT_DOMAIN);
                                 foreach (var msg in lst)
                                     await ProcessRecords(msg.Answers);
@@ -88,6 +96,7 @@ namespace TinyDNSDemo
                 }
                 else if (record.Type == DNSRecordType.SRV)
                 {
+                    // A detailed record of a host that is running a service on a particular port (with optional text info)
                     string? serviceName = MDNS.GetServiceName(((SRVRecord)record).Labels);
                     string? serviceInstance = MDNS.GetInstanceName(((SRVRecord)record).Labels);
                     List<ResourceRecord> rcds = new List<ResourceRecord>();
@@ -101,6 +110,7 @@ namespace TinyDNSDemo
                 {
                     if (records.Any(r => r.Type == DNSRecordType.SRV && record.Name.Equals(r.Name)))
                         continue;
+                    //There are a few services that publish text without a SRV record - catch them here.  Most implementations won't need this.
                     string? serviceName = MDNS.GetServiceName(((TxtRecord)record).Labels);
                     string? serviceInstance = MDNS.GetInstanceName(((TxtRecord)record).Labels);
                     if (serviceInstance != null && serviceName != null)
