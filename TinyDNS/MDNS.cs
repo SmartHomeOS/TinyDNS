@@ -11,6 +11,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -32,6 +33,7 @@ namespace TinyDNS
         private Socket? listenerV4;
         private Socket? listenerV6;
         private readonly List<Socket> senders = [];
+        private readonly ConcurrentDictionary<long, IPAddress> multicastAddressV6Scoped = [];
 
         public delegate Task MessageEventHandler(DNSMessageEvent e);
         public event MessageEventHandler? AnswerReceived;
@@ -441,13 +443,22 @@ namespace TinyDNS
                     if (sender.AddressFamily == AddressFamily.InterNetwork)
                         await sender.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(MulticastAddress, PORT), stop.Token);
                     else
-                        await sender.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(MulticastAddressV6, PORT), stop.Token);
+                        await sender.SendToAsync(buffer.Slice(0, len), SocketFlags.None, new IPEndPoint(GetMulticastAddressV6(sender.LocalEndPoint), PORT), stop.Token);
                     await Task.Delay(5);
                 }
             }finally
             {
                 ArrayPool<byte>.Shared.Return(buffer.Array!);
             }
+        }
+
+        private IPAddress GetMulticastAddressV6(EndPoint? endPoint)
+        {
+            if (endPoint is not IPEndPoint { Address.IsIPv6LinkLocal: true } ip)
+                return MulticastAddressV6;
+
+            Func<long, IPAddress> factory = scope => new IPAddress(new byte[] { 0xFF, 0x02, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFB }, scope);
+            return multicastAddressV6Scoped.GetOrAdd(ip.Address.ScopeId, factory); 
         }
 
         public void Stop()
